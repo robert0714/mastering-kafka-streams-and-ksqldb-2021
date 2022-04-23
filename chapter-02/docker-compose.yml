@@ -3,7 +3,7 @@ version: '3'
 
 services:
   zookeeper:
-    image: confluentinc/cp-zookeeper:6.0.0
+    image: confluentinc/cp-zookeeper:6.0.6
     hostname: zookeeper
     container_name: zookeeper
     ports:
@@ -11,9 +11,10 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 32181
       ZOOKEEPER_TICK_TIME: 2000
+      TZ: Asia/Taipei
 
   kafka:
-    image: confluentinc/cp-enterprise-kafka:6.0.0
+    image: confluentinc/cp-enterprise-kafka:6.0.6
     hostname: kafka
     container_name: kafka
     depends_on:
@@ -29,13 +30,34 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      TZ: Asia/Taipei
 
   kafka-create-topics:
-    image: confluentinc/cp-enterprise-kafka:6.0.0
+    image: confluentinc/cp-enterprise-kafka:6.0.6
     depends_on:
       - kafka
     hostname: kafka-create-topics
     command: ["bash", "./create-topics.sh"]
     working_dir: /scripts
+    environment:
+      TZ: Asia/Taipei
     volumes:
     - ./scripts:/scripts
+    
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:6.0.6
+    hostname: control-center
+    container_name: control-center
+    depends_on:
+      - kafka
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      PORT: 9021
+      TZ: Asia/Taipei

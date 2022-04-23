@@ -15,7 +15,10 @@ plugins {
 
     // Used for code formatting
     // https://plugins.gradle.org/plugin/com.github.sherter.google-java-format
-    id 'com.github.sherter.google-java-format' version '0.8'
+    id 'com.github.sherter.google-java-format' version '0.9'
+
+    // Used for generating fatjar
+    id 'com.github.johnrengelman.shadow' version '7.0.0'
 }
 
 repositories {
@@ -25,13 +28,17 @@ repositories {
 }
 
 dependencies {
-    implementation 'org.apache.kafka:kafka-streams:2.7.0'
+    implementation 'org.apache.kafka:kafka-streams:2.7.2'
+
+    // Used for fatjar excuting showing console when using command "java -jar ./build/libs/hello-streams-all.jar"
+    implementation 'org.slf4j:slf4j-api:1.7.36'
+    implementation 'org.slf4j:slf4j-simple:1.7.36'
 
     // Use JUnit Jupiter API for testing.
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.6.2'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.2'
 
     // Use JUnit Jupiter Engine for testing.
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.6.2'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
 }
 
 application {

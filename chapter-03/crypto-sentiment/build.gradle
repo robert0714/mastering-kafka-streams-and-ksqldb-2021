@@ -2,7 +2,7 @@ plugins {
   id 'application'
 
   // https://plugins.gradle.org/plugin/com.github.sherter.google-java-format
-  id 'com.github.sherter.google-java-format' version '0.8'
+  id 'com.github.sherter.google-java-format' version '0.9'
 
   // https://plugins.gradle.org/plugin/net.ltgt.errorprone
   id 'net.ltgt.errorprone' version '0.6.1'
@@ -12,7 +12,7 @@ plugins {
 }
 
 ext {
-  kafkaVersion = '2.7.0'
+  kafkaVersion = '2.7.2'
 }
 
 application {
@@ -65,7 +65,7 @@ dependencies {
 
   // test dependencies
   testImplementation "org.apache.kafka:kafka-streams-test-utils:${kafkaVersion}"
-  testImplementation 'org.junit.jupiter:junit-jupiter:5.6.2'
+  testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
   testImplementation 'org.assertj:assertj-core:3.15.0'
 
   errorprone 'com.google.errorprone:error_prone_core:2.3.2'
