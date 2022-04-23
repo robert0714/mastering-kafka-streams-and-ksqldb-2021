@@ -132,7 +132,7 @@ Now that we’ve learned how to bootstrap new Kafka Streams projects and have ha
 
 ### Adding the Kafka Streams Dependency
 To start working with Kafka Streams, we simply need to add the Kafka Streams library as a dependency in our build file. (In Gradle projects, our build file is called build.gradle.) An example build file is shown here:
-```json
+```properties
 plugins {
     id 'java'
     id 'application'
