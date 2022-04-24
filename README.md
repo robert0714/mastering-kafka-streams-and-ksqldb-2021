@@ -93,3 +93,6 @@ Code repository for the upcoming O'Reilly book: [Mastering Kafka Streams and ksq
 [survey]: https://kafka-streams-book.typeform.com/to/TWuRwK
 [twitter]: https://twitter.com/kafka_book
 [website]: https://www.kafka-streams-book.com/
+
+# A proposed Kafka maturity model
+For a comparison, check out the Confluent white paper titled, “[Five Stages to Streaming Platform Adoption](https://assets.confluent.io/m/41f3c9186d4adb03/original/20180927-WP-Five-Stages_to_Streaming_Platform_Adoption.pdf?ajs_aid=4224d8d2-95b7-4b07-92d7-0dba251be61e&_ga=2.84813978.2024891929.1650607704-1763164608.1648258250)” , which presents a different perspective that encompasses five stages of their streaming maturity model with distinct criteria for each stage . 
