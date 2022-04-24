@@ -125,3 +125,7 @@ Now that you have some idea of who is using Kafka Streams and what kinds of use 
 
 # The 20 fastest-rising and sharpest-declining tech skills of the past 5 years: Kafka
 https://www.techrepublic.com/article/the-20-fastest-rising-and-sharpest-declining-tech-skills-of-the-past-5-years/
+
+
+# Kafka Streams Official Examples
+https://github.com/confluentinc/kafka-streams-examples
