@@ -23,7 +23,7 @@ First, if you want to see this running without setting up a service account for 
 $ ./gradlew run --info
 ```
 
-Now, follow the instructions in [Producing Test Data](./chapter-03#producing-test-data).
+Now, follow the instructions in [Producing Test Data](#producing-test-data).
 
 ## Option 2 (actual translation / sentiment analysis)
 If you want the app to actually perform tweet translation and sentiment analysis, you will need to setup a service account with Google Cloud.
