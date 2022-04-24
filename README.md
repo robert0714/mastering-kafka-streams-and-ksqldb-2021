@@ -96,3 +96,28 @@ Code repository for the upcoming O'Reilly book: [Mastering Kafka Streams and ksq
 
 # A proposed Kafka maturity model
 For a comparison, check out the Confluent white paper titled, “[Five Stages to Streaming Platform Adoption](https://assets.confluent.io/m/41f3c9186d4adb03/original/20180927-WP-Five-Stages_to_Streaming_Platform_Adoption.pdf?ajs_aid=4224d8d2-95b7-4b07-92d7-0dba251be61e&_ga=2.84813978.2024891929.1650607704-1763164608.1648258250)” , which presents a different perspective that encompasses five stages of their streaming maturity model with distinct criteria for each stage . 
+
+# Use Cases
+Kafka Streams is optimized for processing unbounded datasets quickly and efficiently, and is therefore a great solution for problems in low-latency, time-critical domains. A few example use cases include:
+* Financial data processing ( [Flipkart](https://oreil.ly/dAcbY) ), purchase monitoring, fraud detection
+* Algorithmic trading
+* Stock market/crypto exchange monitoring
+* Real-time inventory tracking and replenishment ( [Walmart](https://oreil.ly/VoF76) )
+* Event booking, seat selection ( [Ticketmaster](https://oreil.ly/V4t1h) )
+* Email delivery tracking and monitoring (Mailchimp)
+* Video game telemetry processing (Activision, the publisher of [Call of Duty](https://oreil.ly/Skan3) )
+* Search indexing ( [Yelp](https://oreil.ly/IhCnC) )
+* Geospatial tracking/calculations (e.g., distance comparison, arrival projections)
+* Smart Home/IoT sensor processing (sometimes called AIOT, or the Artificial Intelligence of Things)
+* Change data capture ( [Redhat](https://oreil.ly/INs3z) )
+* Sports broadcasting/real-time widgets ( [Gracenote](https://oreil.ly/YeX33) )
+* Real-time ad platforms ( [Pinterest](https://oreil.ly/cBgSG) )
+* Predictive healthcare, vitals monitoring ( [Children’s Healthcare of Atlanta](https://oreil.ly/4MYLc) )
+* Chat infrastructure ( [Slack](https://oreil.ly/_n7sZ) ), chat bots, virtual assistants
+* Machine learning pipelines ( [Twitter](https://oreil.ly/RuPPV) ) and platforms ( [Kafka Graphs](https://oreil.ly/8IHKT) )
+
+The list goes on and on, but the common characteristic across all of these examples is that they require (or at least benefit from) `real-time decision making` or data processing. The spectrum of these use cases, and others you will encounter in the wild, is really quite fascinating. On one end of the spectrum, you may be processing streams at the hobbyist level by analyzing sensor output from a Smart Home device. However, you could also use Kafka Streams in a healthcare setting to monitor and react to changes in a trauma victim’s condition, as Children’s Healthcare of Atlanta has done.
+
+Kafka Streams is also a great choice for building microservices on top of real-time event streams. It not only simplifies typical stream processing operations (filtering, joining, windowing, and transforming data), but as you will see in “Interactive Queries”, it is also capable of exposing the state of a stream using a feature called ``interactive queries``. The state of a stream could be an aggregation of some kind (e.g., the total number of views for each video in a streaming platform) or even the latest representation for a rapidly changing entity in your event stream (e.g., the latest stock price for a given stock symbol).
+
+Now that you have some idea of who is using Kafka Streams and what kinds of use cases it is well suited for, let’s take a quick look at Kafka Streams’ architecture before we start writing any code.
