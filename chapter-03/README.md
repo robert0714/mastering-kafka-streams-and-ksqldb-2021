@@ -66,7 +66,7 @@ Finally, run the Kafka Streams application using the following command:
 $ ./gradlew run --info
 ```
 
-Now, follow the instructions in [Producing Test Data](#-producing-test-data).
+Now, follow the instructions in [Producing Test Data](#producing-test-data).
 
 # Producing Test Data
 We have a couple of test records saved to the `data/test.json` file, which is mounted in the `kafka` container for convenience. Feel free to modify the data in this file as you see fit. Then, run the following command to produce the test data to the source topic (`tweets`).
