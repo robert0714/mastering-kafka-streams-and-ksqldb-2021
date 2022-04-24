@@ -16,6 +16,7 @@ Code repository for the upcoming O'Reilly book: [Mastering Kafka Streams and ksq
 [early-release]: https://github.com/mitch-seymour/mastering-kafka-streams-and-ksqldb/tree/early-release
 [1st-edition]: https://github.com/mitch-seymour/mastering-kafka-streams-and-ksqldb/tree/1st-edition
 
+[The Streams API is not compatible with Kafka clusters running older Kafka versions (0.7, 0.8, 0.9).](https://docs.confluent.io/platform/current/streams/introduction.html#requirements)
 
 [Confluent Platform and Apache Kafka Compatibility](https://docs.confluent.io/platform/current/installation/versions-interoperability.html#cp-and-apache-ak-compatibility)
 | Confluent Platform | Apache Kafka® | Release Date       | Standard End of Support | Platinum End of Support |
