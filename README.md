@@ -10,6 +10,7 @@ Code repository for the upcoming O'Reilly book: [Mastering Kafka Streams and ksq
 | --------| --------------------- | ---------------| -----------------| -------|
 | Early Release| 2.6.0 | 0.12.0| May 2020 | [early-release][early-release] |
 | [1st Edition][amzn]| 2.7.0 | 0.14.0| February 2021 | [1st-edition][1st-edition] |
+| main| 2.7.2 | 0.14.0| April 2022 | [master][master] |
 
 [amzn]: https://www.amazon.com/gp/product/1492062499/ref=as_li_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=1492062499&linkCode=as2&tag=mitchseymour-20&linkId=28979f4bdca5bc57af5ed2f8962d4d12
 [early-release]: https://github.com/mitch-seymour/mastering-kafka-streams-and-ksqldb/tree/early-release
@@ -121,3 +122,6 @@ The list goes on and on, but the common characteristic across all of these examp
 Kafka Streams is also a great choice for building microservices on top of real-time event streams. It not only simplifies typical stream processing operations (filtering, joining, windowing, and transforming data), but as you will see in “Interactive Queries”, it is also capable of exposing the state of a stream using a feature called ``interactive queries``. The state of a stream could be an aggregation of some kind (e.g., the total number of views for each video in a streaming platform) or even the latest representation for a rapidly changing entity in your event stream (e.g., the latest stock price for a given stock symbol).
 
 Now that you have some idea of who is using Kafka Streams and what kinds of use cases it is well suited for, let’s take a quick look at Kafka Streams’ architecture before we start writing any code.
+
+# The 20 fastest-rising and sharpest-declining tech skills of the past 5 years: Kafka
+https://www.techrepublic.com/article/the-20-fastest-rising-and-sharpest-declining-tech-skills-of-the-past-5-years/
