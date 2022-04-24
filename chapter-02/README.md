@@ -39,7 +39,7 @@ or
 java -cp  ./build/libs/hello-streams-all.jar   com.example.DslExample
 ```
 
-Once the dependencies are downloaded and the application is running (this may take a few minutes the first time you run the app, but will be much faster during subsequent runs), following the instructions under the [Producing Test Data](producing-test-data) section at the bottom of this README.
+Once the dependencies are downloaded and the application is running (this may take a few minutes the first time you run the app, but will be much faster during subsequent runs), following the instructions under the [Producing Test Data](#producing-test-data) section at the bottom of this README.
 
 ## Processor API example
 
@@ -52,7 +52,7 @@ or
 java -cp  ./build/libs/hello-streams-all.jar   com.example.ProcessorApiExample
 ```
 
-Once the dependencies are downloaded and the application is running (this may take a few minutes the first time you run the app, but will be much faster during subsequent runs), following the instructions under the  [Producing Test Data](producing-test-data)  section below.
+Once the dependencies are downloaded and the application is running (this may take a few minutes the first time you run the app, but will be much faster during subsequent runs), following the instructions under the [Producing Test Data](#producing-test-data)  section below.
 
 # Producing Test Data
 Once the Kafka Streams application is running (either the DSL or Processor API version), open a new shell tab and produce some data to the source topic (`users`).
