@@ -11,6 +11,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 32181
       ZOOKEEPER_TICK_TIME: 2000
+      TZ: Asia/Taipei
 
   kafka:
     image: confluentinc/cp-enterprise-kafka:6.0.6
@@ -29,6 +30,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      TZ: Asia/Taipei
     working_dir: /data
     volumes:
     - ./data:/data
@@ -42,3 +44,24 @@ services:
     working_dir: /scripts
     volumes:
     - ./scripts:/scripts
+
+  control-center:
+    image: confluentinc/cp-enterprise-control-center:6.0.6
+    hostname: control-center
+    container_name: control-center
+    depends_on:
+      - kafka
+    ports:
+      - "9021:9021"
+    environment:
+      CONTROL_CENTER_BOOTSTRAP_SERVERS: 'kafka:9092'
+      CONTROL_CENTER_REPLICATION_FACTOR: 1
+      CONTROL_CENTER_INTERNAL_TOPICS_PARTITIONS: 1
+      CONTROL_CENTER_MONITORING_INTERCEPTOR_TOPIC_PARTITIONS: 1
+      CONFLUENT_METRICS_TOPIC_REPLICATION: 1
+      PORT: 9021
+      #CONTROL_CENTER_CONNECT_CONNECT-DEFAULT_CLUSTER: 'connect:8083'
+      #CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
+      #CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
+      # CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      TZ: Asia/Taipei

@@ -52,13 +52,13 @@ Table 4-1. Stateful operators and their purpose
     </tr>
     <tr>
         <td>Joining data</td>
-        <td>Enrich an event with additional&nbsp;information or context that was captured in a separate stream or table</td>
-        <td>join(inner join)<br/>leftJoin<br/>outerJoin</td>
+        <td>Enrich an event with additionalinformation or context that was captured in a separate stream or table</td>
+        <td>join(inner join)leftJoinouterJoin</td>
     </tr>
     <tr>
         <td>Aggregating data</td>
-        <td>Compute a&nbsp;continuously updating mathematical or combinatorial transformation of related events</td>
-        <td>aggregate<br/>count<br/>reduce</td>
+        <td>Compute acontinuously updating mathematical or combinatorial transformation of related events</td>
+        <td>aggregatecountreduce</td>
     </tr>
     <tr>
         <td>Windowing data</td>
@@ -133,7 +133,7 @@ Once we’ve created our real-time leaderboard using a new set of stateful opera
 Without further ado, let’s take a look at the architecture of our video game leaderboard. Figure 4-1 shows the topology design we’ll be implementing in this chapter. Additional information about each step is included after the diagram.
 
 ![The topology that we will be implementing in our stateful video game leaderboard application](./material/mksk_0401.png)  
-Figure Figure 4-1. The topology that we will be implementing in our stateful video game leaderboard application
+Figure 4-1. The topology that we will be implementing in our stateful video game leaderboard application
 
 1. Our Kafka cluster contains three topics:
     * The score-events topic contains game scores. The records are unkeyed and are therefore distributed in a round-robin fashion across the topic’s partitions.
@@ -209,39 +209,39 @@ Table 4-2. Example records and data classes for each topic
     </tr>
     <tr>
         <td>score-events</td>
-        <td>{<br/>
-&nbsp;&nbsp;"score": 422,<br/>
-&nbsp;&nbsp;"product_id": 6,<br/>
-&nbsp;&nbsp;"player_id": 1<br/>
-}<br/>
+        <td><pre>{
+    "score": 422,
+    "product_id": 6,
+    "player_id": 1
+}</pre>
 </td>
-        <td>public class ScoreEvent {<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;private Long playerId;<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;private Long productId;<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;private Double score;<br/>
-}</td>
+        <td><pre>public class ScoreEvent {
+    private Long playerId;
+    private Long productId;
+    private Double score;
+}</pre></td>
     </tr>
     <tr>
         <td>players</td>
-        <td>{<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;"id": 2,<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;"name": "Mitch"<br/>
-}</td>
-        <td>public class Player {<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;private Long id;<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;private String name;<br/>
-}</td>
+        <td><pre>{
+    "id": 2,
+    "name": "Mitch"
+}</pre></td>
+        <td><pre>public class Player {
+    private Long id;
+    private String name;
+}</pre></td>
     </tr>
     <tr>
         <td>products</td>
-        <td>{<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;"id": 1,<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;"name": "Super Smash Bros"<br/>
-}</td>
-        <td>public class Product {<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;private Long id;<br/>
-&nbsp;&nbsp;&nbsp;&nbsp;private String name;<br/>
-}</td>
+        <td><pre>{
+    "id": 1,
+    "name": "Super Smash Bros"
+}</pre></td>
+        <td><pre>public class Product {
+    private Long id;
+    private String name;
+}</pre></td>
     </tr>
 </table>
 
