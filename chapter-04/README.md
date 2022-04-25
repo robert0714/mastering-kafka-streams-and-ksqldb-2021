@@ -172,7 +172,11 @@ docker-compose logs -f
 Now, to run the Kafka Streams application, simply run:
 
 ```
-./gradlew run --info
+./gradle run --info
+```
+or
+```
+java -jar build/libs/xxxx.jar  -Dhost=localhost  -Dport=7000  -DstateDir=/tmp/kafka-streams
 ```
 
 # Data Models
@@ -334,5 +338,35 @@ curl -s localhost:7000/leaderboard/1 | jq '.'
   }
 ]
 ```
+# Summary
+In this chapter, you learned how Kafka Streams captures information about the events it consumes, and how to leverage the remembered information (state) to perform more advanced stream processing tasks, including:
 
+* Performing a ``KStream-KTable`` join
+* Rekeying messages to meet the co-partitioning requirements for certain join types
+* Performing a ``KStream-GlobalKTable`` join
+* Grouping records into intermediate representations (``KGroupedStream``, ``KGroupedTable``) to prepare our data for aggregating
+* Aggregating streams and tables
+* Using the interactive queries to expose the state of our application using both local and remote queries
+
+In the next chapter, we will discuss another aspect of stateful programming that is concerned with not only what events our application has seen, but when they occurred. Time plays a key role in stateful processing, so understanding the different notions of time and also the several time-based abstractions in the Kafka Streams library will help us expand our knowledge of stateful processing even further.
 # Reference
+1. For more information about stream-relational processing platforms, please see [Robert Yokota’s 2018 blog post on the subject](https://yokota.blog/2018/03/05/stream-relational-processing-platforms/).
+2. In memory, on disk, or some combination of both.
+3. LevelDB was written at Google, but when Facebook engineers started using it, they found it to be too slow for their embedded workflows. By changing the single-threaded compaction process in LevelDB to a multi-threaded compaction process, and by leveraging bloom filters for reads, both read and write performance were drastically improved.
+4. We mentioned that state stores are highly configurable, and even fault tolerance can be turned off by disabling the change logging behavior.
+5. For example, inMemoryKeyValueStore uses a Java TreeMap, which is based on a red-black tree, while all persistent key-value stores use RocksDB.
+6. For example, window stores are key-value stores, but the keys also include the window time in addition to the record key.
+7. Tim Berglund and Yaroslav Tkachenko talk about Activision’s use case in the [Streaming Audio podcast](https://www.buzzsprout.com/186154/2555848-streaming-call-of-duty-at-activision-with-apache-kafka-ft-yaroslav-tkachenko).
+8. We’ve already seen how Kafka Streams can write directly to output topics, which allows us to push processed/enriched data to downstream applications. However, interactive queries can be used by clients who want to issue ad hoc queries against a Kafka Streams application instead.
+9. As mentioned in [Chapter 3](../chapter-03/), if our topics contained Avro data, we could define our data model in an Avro schema file instead.
+10. We can also use KStreams for lookup/join operations, but this is always a windowed operation, so we have reserved discussion of this topic until the next chapter.
+11. Florian Trossbach and Matthias J. Sax go much deeper on this subject in their “[Crossing the Streams: Joins in Apache Kafka](https://www.confluent.io/blog/crossing-streams-joins-apache-kafka/)” article.
+12. UNION queries are another method for combining datasets in the relational world. The behavior of the **merge** operator in Kafka Streams is more closely related to how a UNION query works.
+13. If you’re not using Confluent Platform, the script is **kafka-topics.sh**.
+14. The GlobalKTable side of the join will still use the record key for the lookup.
+15. Streams are append-only, so do not need a subtractor.
+16. We haven’t talked about deleting keys yet, but we will cover this topic in [Chapter 6](../chapter-06/), when we discuss cleaning up state stores.
+17. The latter of these is not advisable. Running a single Kafka Streams application would consolidate the entire application state to a single instance, but Kafka Streams is meant to be run in a distributed fashion for maximizing performance and fault tolerance.
+18. And other clients if desired, e.g., humans.
+19. Which replaces the metadataForKey method that was widely used in versions < 2.5, but officially deprecated in that release.
+20. There is an overloaded version of the queryMetadataForKey method that accepts a custom StreamPartitioner as well.
