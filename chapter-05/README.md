@@ -64,6 +64,11 @@ Now, to run the Kafka Streams application, simply run:
 ```
 ./gradlew run --info
 ```
+or
+```
+java -jar build/libs/xxxx.jar  -Dhost=localhost  -Dport=7000  -DstateDir=/tmp/kafka-streams
+```
+
 # Data Models
 As usual, we’ll start by defining our data models. Since each vitals measurement is associated with a timestamp, we will first create a simple interface for each data class to implement. This interface allows us to extract the timestamp from a given record in a consistent manner, and will come in handy when we implement a timestamp extractor later in this chapter. The following code block shows the interface each data class will implement:
 ```java
