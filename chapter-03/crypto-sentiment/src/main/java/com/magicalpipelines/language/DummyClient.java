@@ -3,10 +3,9 @@ package com.magicalpipelines.language;
 import com.google.common.base.Splitter;
 import com.magicalpipelines.model.EntitySentiment;
 import com.magicalpipelines.serialization.Tweet;
-// import io.grpc.netty.shaded.io.netty.util.internal.ThreadLocalRandom;
+import io.grpc.netty.shaded.io.netty.util.internal.ThreadLocalRandom;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 
 public class DummyClient implements LanguageClient {
   @Override

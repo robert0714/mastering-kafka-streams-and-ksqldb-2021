@@ -29,6 +29,8 @@ Before we get started, let’s look at the steps required to build our stream pr
 1. Each tweet should be enriched with a sentiment score, which indicates whether Twitter users are conveying positive or negative emotion when discussing certain digital currencies. Since a single tweet could mention multiple cryptocurrencies, we will demonstrate how to convert each input (tweet) into a variable number of outputs using a **flatMap** operator.
 1. The enriched tweets should be serialized using Avro, and written to an output topic called **crypto-sentiment**. Our fictional trading algorithm will read from this topic and make investment decisions based on the signals it sees.
 
+https://cloud.google.com/natural-language/docs/languages
+
 Now that the requirements have been captured, we can design our processor topology. Figure 3-1 shows what we’ll be building in this chapter and how data will flow through our Kafka Streams application.
 ![The topology that we will be implementing for our tweet enrichment application](./material/mksk_0301.png)  
 Figure 3-1. The topology that we will be implementing for our tweet enrichment application
