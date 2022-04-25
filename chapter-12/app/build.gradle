@@ -79,7 +79,7 @@ targetCompatibility = JavaVersion.VERSION_1_8
 
 dependencies {
   implementation "org.apache.kafka:kafka-streams:${kafkaVersion}"
-  implementation 'ch.qos.logback:logback-classic:1.2.3'
+  implementation 'ch.qos.logback:logback-classic:1.2.11'
 
   // configuration
   implementation "com.typesafe:config:1.4.0"

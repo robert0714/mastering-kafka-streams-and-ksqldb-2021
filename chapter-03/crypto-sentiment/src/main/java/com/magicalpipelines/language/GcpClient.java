@@ -50,6 +50,8 @@ public class GcpClient implements LanguageClient {
 
     // if you want to get real functional, clone the tweet and set the text on the new object
     tweet.setText(translation.getTranslatedText());
+    System.out.println("------------------------------");
+    System.out.println("Translated(gcp): " + tweet.getText());
     return tweet;
   }
 

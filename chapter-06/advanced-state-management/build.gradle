@@ -5,7 +5,7 @@ plugins {
   id 'com.github.sherter.google-java-format' version '0.9'
 
   // https://plugins.gradle.org/plugin/net.ltgt.errorprone
-  id 'net.ltgt.errorprone' version '0.6.1'
+  id 'net.ltgt.errorprone' version '2.0.1'
 }
 
 ext {
@@ -27,8 +27,8 @@ dependencies {
   implementation "org.apache.kafka:kafka-streams:${kafkaVersion}"
 
   // logging
-  implementation 'org.slf4j:slf4j-api:1.7.3'
-  implementation 'ch.qos.logback:logback-classic:1.2.3'
+  implementation 'org.slf4j:slf4j-api:1.7.36'
+  implementation 'ch.qos.logback:logback-classic:1.2.11'
 
   errorprone 'com.google.errorprone:error_prone_core:2.3.2'
   errorproneJavac 'com.google.errorprone:javac:9+181-r4173-1'

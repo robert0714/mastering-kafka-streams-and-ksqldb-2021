@@ -50,6 +50,12 @@ Once Docker Compose is installed, you can start the local Kafka cluster using th
 ```sh
 $ docker-compose up
 ```
+Runs a [Confluent Control Center](https://docs.confluent.io/platform/current/control-center/index.html) that exposes a UI at `http://localhost:9021/` .
+
+We can follow the startup by monitoring the output :
+```shell
+docker-compose logs -f
+```
 
 Regarding the Kafka Streams application, there are two easy options for running the example code, depending on whether or not you want to use a dummy client for performing tweet translation and sentiment analysis, or if you actually want to use Google's Natural Language API (which requires a service account) to perform these tasks. If you don't want to bother setting up a service account, no worries. Just follow the steps under **Option 1**.
 
