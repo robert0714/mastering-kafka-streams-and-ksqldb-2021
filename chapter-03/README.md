@@ -19,15 +19,15 @@ In this tutorial, we will explore the use case of algorithmic trading. Sometimes
 To assist our fictional trading software, we will build a stream processing application that will help us gauge market sentiment around different types of cryptocurrencies (Bitcoin, Ethereum, Ripple, etc.), and use these sentiment scores as investment/divestment signals in a custom trading algorithm.[3](#refernece) Since millions of people use Twitter to share their thoughts on cryptocurrencies and other topics, we will use Twitter as the data source for our application.
 
 Before we get started, let’s look at the steps required to build our stream processing application. We will then use these requirements to design a processor topology, which will be a helpful guide as we build our stateless Kafka Streams application. The key concepts in each step are italicized:
-1. Tweets that mention certain digital currencies (#bitcoin, #ethereum) should be consumed from a source topic called tweets:
-    * Since each record is JSON-encoded, we need to figure out how to properly deserialize these records into higher-level data classes.
-    * Unneeded fields should be removed during the deserialization process to simplify our code. Selecting only a subset of fields to work with is referred to as projection, and is one of the most common tasks in stream processing.
-1. Retweets should be excluded from processing. This will involve some form of data filtering.
-1. Tweets that aren’t written in English should be branched into a separate stream for translating.
-1. Non-English tweets need to be translated to English. This involves mapping one input value (the non-English tweet) to a new output value (an English-translated tweet).
-1. The newly translated tweets should be merged with the English tweets stream to create one unified stream.
-1. Each tweet should be enriched with a sentiment score, which indicates whether Twitter users are conveying positive or negative emotion when discussing certain digital currencies. Since a single tweet could mention multiple cryptocurrencies, we will demonstrate how to convert each input (tweet) into a variable number of outputs using a flatMap operator.
-1. The enriched tweets should be serialized using Avro, and written to an output topic called crypto-sentiment. Our fictional trading algorithm will read from this topic and make investment decisions based on the signals it sees.
+1. Tweets that mention certain digital currencies (#bitcoin, #ethereum) should be consumed from a source topic called **tweets**:
+    * Since each record is JSON-encoded, we need to figure out how to properly **deserialize** these records into higher-level data classes.
+    * Unneeded fields should be removed during the deserialization process to simplify our code. Selecting only a subset of fields to work with is referred to as **projection**, and is one of the most common tasks in stream processing.
+1. Retweets should be excluded from processing. This will involve some form of data **filtering**.
+1. Tweets that aren’t written in English should be **branched** into a separate stream for translating.
+1. Non-English tweets need to be translated to English. This involves **mapping** one input value (the non-English tweet) to a new output value (an English-translated tweet).
+1. The newly translated tweets should be **merged** with the English tweets stream to create one unified stream.
+1. Each tweet should be enriched with a sentiment score, which indicates whether Twitter users are conveying positive or negative emotion when discussing certain digital currencies. Since a single tweet could mention multiple cryptocurrencies, we will demonstrate how to convert each input (tweet) into a variable number of outputs using a **flatMap** operator.
+1. The enriched tweets should be serialized using Avro, and written to an output topic called **crypto-sentiment**. Our fictional trading algorithm will read from this topic and make investment decisions based on the signals it sees.
 
 Now that the requirements have been captured, we can design our processor topology. Figure 3-1 shows what we’ll be building in this chapter and how data will flow through our Kafka Streams application.
 ![The topology that we will be implementing for our tweet enrichment application](./material/mksk_0301.png)  
