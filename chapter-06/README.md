@@ -475,7 +475,19 @@ As mentioned before, the rebalancing state can be especially impactful for state
 
 Depending on your application, you may want to take a certain action when a rebalance occurs. For example, at Mailchimp, we create a special metric in our Kafka Streams applications that gets incremented whenever a rebalance is triggered. The metric is sent to our monitoring system (Prometheus), where it can be queried or even used for creating alerts.
 
-
+   ```mermaid
+     graph TD;
+         Created-->Running;
+         Created-->Not_Running;
+         Running-->Error;
+         Running-->Rebalancing;
+         Rebalancing-->Error;
+         Rebalancing-->Pending_Shutdown;
+         Error-->Pending_Shutdown;
+         Pending_Shutdown-->Not_Running;
+   ```  
+   https://mermaid-js.github.io/mermaid/#/
+   
 ![Application states and their valid transitions in Kafka Streams](./material/mksk_0605.png)  
 Figure 6-5. Application states and their valid transitions in Kafka Streams
 
@@ -613,32 +625,3 @@ You should now have a deeper understanding of how state stores are internally ma
 [^12]: For example, the KeyValueStore interface adds the void put(K key, V value) method, among others, since it knows the underlying store will need to write key-value pairs to the underlying storage engine.
 
 
-  - Class diagram
-   ```mermaid
-   classDiagram
-       class Duck{
-        -weight
-         +swim()
-         +quack()
-       }
-   ```
-
-   - Sequence diagram
-   ```mermaid
-   sequenceDiagram
-       participant dotcom
-       participant iframe
-       dotcom->>iframe: loads html w/ iframe url
-   ```
-  - Figure 6-5. Application states and their valid transitions in Kafka Streams
-   ```mermaid
-     graph TD;
-         Created-->Running;
-         Created-->Not_Running;
-         Running-->Error;
-         Running-->Rebalancing;
-         Rebalancing-->Error;
-         Rebalancing-->Pending_Shutdown;
-         Error-->Pending_Shutdown;
-         Pending_Shutdown-->Not_Running;
-   ```  
