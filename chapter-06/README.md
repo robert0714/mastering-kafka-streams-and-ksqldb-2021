@@ -633,8 +633,12 @@ You should now have a deeper understanding of how state stores are internally ma
   - Flowchart
    ```mermaid
      graph TD;
-         A-->B;
-         A-->C;
-         B-->D;
-         C-->D;
+         Created-->Running;
+         Created-->NotRunning;
+         Running-->Error;
+         Running-->Rebalancing;
+         Rebalancing-->Error;
+         Rebalancing-->PendingShutdown;
+         Error-->PendingShutdown;
+         PendingShutdown-->NotRunning;
    ```  
