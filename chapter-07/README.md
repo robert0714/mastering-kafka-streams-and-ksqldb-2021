@@ -125,24 +125,38 @@ As usual, before we start creating our topology, we’ll first define our data m
 Note that the data coming through both of the input topics is formatted as JSON for simplicity, and both types of records are represented using a common class: ``TurbineState``. We have omitted the accessor functions in the TurbineState class for brevity’s sake.
 
 ###### Table 7-1. Example records and data classes for each source topic
-| Kafka topic           | Example record                                                    | Data class                                                                                                                                                                                                    |
-|-----------------------|-------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| reported-state-events | {
+<table>
+    <tr>
+        <td>Kafka topic</td>
+        <td>Example record</td>
+        <td>Data class</td>
+    </tr>
+    <tr>
+        <td>reported-state-events</td>
+        <td><pre>{
   "timestamp": "...",
   "wind_speed_mph": 40,
   "power": "ON"
-} | public class TurbineState {
+}</pre></td>
+        <td><pre>public class TurbineState {
   private String timestamp;
   private Double windSpeedMph;
   public enum Power { ON, OFF }
   public enum Type { DESIRED, REPORTED }
   private Power power;
   private Type type;
-} |
-| desired-state-events  | {
+}</pre></td>
+    </tr>
+    <tr>
+        <td>desired-state-events</td>
+        <td><pre>{
   "timestamp": "...",
   "power": "OFF"
-}                        | Same as the data class for reported-state                                                                                                                                                                     |
+}</pre></td>
+        <td>Same as the data class for&nbsp;reported-state</td>
+    </tr>
+</table>
+
 As mentioned in the tutorial overview, we need to combine the reported and desired state records to create a digital twin record. Therefore, we also need a data class for the combined record. The following table shows the JSON structure of the combined digital twin record, as well as the corresponding data class:
 <table>
     <tr>
