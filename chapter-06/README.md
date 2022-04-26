@@ -246,7 +246,7 @@ group.instance.id = app-1 1
 ```
 1. In this case, we set the ID to app-1. If we spin up another instance, we would assign it a unique ID as well (e.g., app-2). This ID must be unique across the entire cluster (even among different Kafka Streams applications, independent of application.id, and other consumers, independent of group.id).
 
-The hardcoded instance ID is typically used in conjunction with higher session timeouts,6 which buys the application even more time for restarting so that the coordinator doesn’t think the consumer instance is dead when it goes offline for a short period of time.
+The hardcoded instance ID is typically used in conjunction with higher session timeouts,[^6] which buys the application even more time for restarting so that the coordinator doesn’t think the consumer instance is dead when it goes offline for a short period of time.
 
 Static membership is only available for Kafka versions >= 2.3, so if your client or brokers are on an older version, you’ll need to upgrade first. Be aware that increasing the session timeout is a double-edged sword. While it can prevent the coordinator from assuming an instance is dead during a brief period of downtime, the trade-off is that it can lead to slower detection of actual failure.
 
