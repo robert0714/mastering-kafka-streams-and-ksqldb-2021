@@ -622,3 +622,19 @@ You should now have a deeper understanding of how state stores are internally ma
          +quack()
        }
    ```
+
+   - Sequence diagram
+   ```mermaid
+   sequenceDiagram
+       participant dotcom
+       participant iframe
+       dotcom->>iframe: loads html w/ iframe url
+   ```
+  - Flowchart
+   ```mermaid
+     graph TD;
+         A-->B;
+         A-->C;
+         B-->D;
+         C-->D;
+   ```  
