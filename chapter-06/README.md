@@ -291,7 +291,7 @@ Depending on your use case, you may not need to retain the entire application st
 #### Tombstones
 Tombstones are special records that indicate that some state needs to be deleted. They are sometimes referred to as delete markers, and they always have a key and a null value. As mentioned previously, state stores are key-based, so the key in a tombstone record indicates which record from the state store needs to be deleted.
 
-An example of how to generate a tombstone is shown in [the following code block](advanced-state-management/src/main/java/com/magicalpipelines/TombstoneExample.java@L17-L34). In this hypothetical scenario, we are performing some aggregation for a hospital patient, but once we see a patient checkout event, we no longer expect any additional events for this patient, so we remove their data from the underlying state store:
+An example of how to generate a tombstone is shown in [the following code block](advanced-state-management/src/main/java/com/magicalpipelines/TombstoneExample.java#L17-L34). In this hypothetical scenario, we are performing some aggregation for a hospital patient, but once we see a patient checkout event, we no longer expect any additional events for this patient, so we remove their data from the underlying state store:
 
 ```java
 StreamsBuilder builder = new StreamsBuilder();
@@ -596,7 +596,7 @@ if (isAlive(metadata.activeHost())) { (2)
 ```
 1. Use the [KafkaStreams.queryMetadataForKey](../chapter-04/video-game-leaderboard/src/main/java/com/magicalpipelines/LeaderboardService.java#L141-L143) method to get both the active and standby hosts for a given key.
 2. [Check to see if the active host is alive](../chapter-04/video-game-leaderboard/src/main/java/com/magicalpipelines/LeaderboardService.java#L146). You will need to implement this yourself, but you could potentially add a State Listener (see “[Adding State Listeners](#adding-state-listeners)”) and a corresponding API endpoint in your RPC server to surface the current state of your application. isAlive should resolve to true whenever your application is in the Running state.
-3. If the active host is not alive, retrieve the standby hosts so you can query one of the replicated state stores. Note: if no standbys are configured, then this method will return an empty set.
+3. If the active host is not alive, [retrieve the standby hosts so you can query one of the replicated state stores](../chapter-04/video-game-leaderboard/src/main/java/com/magicalpipelines/LeaderboardService.java#L146). Note: if no standbys are configured, then this method will return an empty set.
 
 As you can see, this ability to query standby replicas ensures our application is highly available, even when the active instance is down or unable to serve queries. This wraps up our discussion of how to mitigate the impact of rebalances. Next, we’ll discuss custom state stores.
 
