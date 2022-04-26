@@ -360,8 +360,8 @@ The reason for this behavior is related to how Kafka represents topics on disk. 
 
 Segments are files that contain a subset of messages for a given topic partition. At any given point in time, there is always an active segment, which is the file that is currently being written to for the underlying partition. Over time, the active segments will reach their size threshold and become inactive. Only once a segment is inactive will it be eligible for cleaning.
 
-[^note]:
-    Uncompacted records are sometimes referred to as dirty. The log cleaner is a process that performs compaction on dirty logs, which benefits both the brokers, by increasing available disk space, and the Kafka Streams clients, by reducing the number of records that need to be replayed in order to rebuild a state store.
+> # NOTE
+> Uncompacted records are sometimes referred to as dirty. The log cleaner is a process that performs compaction on dirty logs, which benefits both the brokers, by increasing available disk space, and the Kafka Streams clients, by reducing the number of records that need to be replayed in order to rebuild a state store.
 
 Since the active segment isn’t eligible for cleaning, and could therefore include a large number of uncompacted records and tombstones that would need to be replayed when initializing a state store, it is sometimes beneficial to reduce the segment size in order to enable more aggressive topic compaction.9 Furthermore, the log cleaner will also avoid cleaning a log if more than 50% of the log has already been cleaned/compacted. This is also configurable and can be adjusted to increase the frequency at which log cleaning occurs.
 
@@ -438,7 +438,7 @@ As mentioned in “Aggressive topic compaction”, compaction and deletion will 
 This wraps up our discussion for keeping state stores and their underlying changelog topics free of unneeded records. Now, let’s look at a strategy you can pursue if it appears that your state stores are bottlenecked by either read latency or write volume.
 
 ### Deduplicating Writes with Record Caches
-As we discussed in “[Suppression](../chapter-05/README.md#suppression)”, there are some DSL methods (namely, suppress, in combination with a buffer config; see Table 5-2) for rate-limiting updates in a windowed store. We also have an operational parameter11 for controlling the frequency with which state updates are written to both the underlying state stores and downstream processors. These parameters are shown in Table 6-2.
+As we discussed in “[Suppression](../chapter-05/README.md#suppression)”, there are some DSL methods (namely, suppress, in combination with a buffer config; see Table 5-2) for rate-limiting updates in a windowed store. We also have an operational parameter[^11] for controlling the frequency with which state updates are written to both the underlying state stores and downstream processors. These parameters are shown in Table 6-2.
 
 Table 6-2. Topic configurations that can be used to reduce writes to state stores and downstream processors
 | Raw config                | StreamsConfig property                                          | Default            | Definition                                                                          |
@@ -583,9 +583,7 @@ if (isAlive(metadata.activeHost())) { 2
 ```
 1. Use the KafkaStreams.queryMetadataForKey method to get both the active and standby hosts for a given key.
 2. Check to see if the active host is alive. You will need to implement this yourself, but you could potentially add a State Listener (see “[Adding State Listeners](#adding-state-listeners)”) and a corresponding API endpoint in your RPC server to surface the current state of your application. isAlive should resolve to true whenever your application is in the Running state.
-3. If the active host is not alive, retrieve the standby hosts so you can query one of the replicated state stores. 
-
-[^note] Note: if no standbys are configured, then this method will return an empty set.
+3. If the active host is not alive, retrieve the standby hosts so you can query one of the replicated state stores. Note: if no standbys are configured, then this method will return an empty set.
 
 As you can see, this ability to query standby replicas ensures our application is highly available, even when the active instance is down or unable to serve queries. This wraps up our discussion of how to mitigate the impact of rebalances. Next, we’ll discuss custom state stores.
 
