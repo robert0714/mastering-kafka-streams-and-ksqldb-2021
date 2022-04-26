@@ -11,6 +11,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 32181
       ZOOKEEPER_TICK_TIME: 2000
+      TZ: Asia/Taipei
 
   kafka:
     image: confluentinc/cp-enterprise-kafka:6.0.6
@@ -29,6 +30,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      TZ: Asia/Taipei
     working_dir: /data
     volumes:
     - ./data:/data
@@ -38,6 +40,8 @@ services:
     depends_on:
       - kafka
     hostname: kafka-create-topics
+    environment:
+      TZ: Asia/Taipei
     command: ["bash", "./create-topics.sh"]
     working_dir: /scripts
     volumes:
