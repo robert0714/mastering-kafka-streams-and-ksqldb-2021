@@ -634,11 +634,11 @@ You should now have a deeper understanding of how state stores are internally ma
    ```mermaid
      graph TD;
          Created-->Running;
-         Created-->Not Running;
+         Created-->Not_Running;
          Running-->Error;
          Running-->Rebalancing;
          Rebalancing-->Error;
-         Rebalancing-->Pending Shutdown;
-         Error-->Pending Shutdown;
-         Pending Shutdown-->Not Running;
+         Rebalancing-->Pending_Shutdown;
+         Error-->Pending_Shutdown;
+         Pending_Shutdown-->Not_Running;
    ```  
