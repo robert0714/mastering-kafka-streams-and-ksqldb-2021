@@ -79,6 +79,8 @@ Since persistent state stores live on disk, we can inspect the files very easily
 
 ###### Example 6-1. An example of how a persistent state store is represented on disk
 ``` shell
+$ tree /tmp/kafka-streams/
+
 .
 └── dev-consumer (1)
     ├── 0_0
@@ -116,7 +118,7 @@ However, when it comes to stateful applications, Kafka Streams takes additional 
 ### Changelog Topics
 Unless explicitly disabled, state stores are backed by changelog topics, which are created and managed by Kafka Streams. These topics capture state updates for every key in the store, and can be replayed in the event of failure to rebuild the application state.[^2] In the event of a total state loss (or when spinning up a new instance), the changelog topic is replayed from the beginning. However, if a checkpoint file exists (see [Example 6-1](#example-6-1-an-example-of-how-a-persistent-state-store-is-represented-on-disk)), then the state can be replayed from the checkpointed offset found in that file, since this offset indicates what data has already been read into the state store. The latter is much quicker because recovering only part of the state takes less time than recovering the full state.
 
-Changelog topics are configurable using the [Materialized class](../chapter-05/patient-monitoring/src/main/java/com/magicalpipelines/PatientMonitoringTopology.java#L76) in the DSL. For example, in the previous chapter, we materialized a state store named pulse-counts using the following code:
+Changelog topics are configurable using the [Materialized class](../chapter-05/patient-monitoring/src/main/java/com/magicalpipelines/PatientMonitoringTopology.java#L76-L82) in the DSL. For example, in the previous chapter, we materialized a state store named pulse-counts using the following code:
 ```java
 pulseEvents
   .groupByKey()
@@ -289,7 +291,7 @@ Depending on your use case, you may not need to retain the entire application st
 #### Tombstones
 Tombstones are special records that indicate that some state needs to be deleted. They are sometimes referred to as delete markers, and they always have a key and a null value. As mentioned previously, state stores are key-based, so the key in a tombstone record indicates which record from the state store needs to be deleted.
 
-An example of how to generate a tombstone is shown in the following code block. In this hypothetical scenario, we are performing some aggregation for a hospital patient, but once we see a patient checkout event, we no longer expect any additional events for this patient, so we remove their data from the underlying state store:
+An example of how to generate a tombstone is shown in [the following code block](advanced-state-management/src/main/java/com/magicalpipelines/TombstoneExample.java@L17-L34). In this hypothetical scenario, we are performing some aggregation for a hospital patient, but once we see a patient checkout event, we no longer expect any additional events for this patient, so we remove their data from the underlying state store:
 
 ```java
 StreamsBuilder builder = new StreamsBuilder();
@@ -312,7 +314,7 @@ stream
 While tombstones are useful for keeping key-value stores small, there is another method we can use to remove unneeded data from windowed key-value stores. We’ll discuss this in the next section.
 
 #### Window retention
-Windowed stores have a configurable retention period to keep the state stores small. For example, in the previous chapter, we created a windowed store in our patient monitoring application to convert raw pulse events into a heart rate. The relevant code is shown here:
+Windowed stores have a configurable retention period to keep the state stores small. For example, in the previous chapter, we created a windowed store in our [patient monitoring application](../chapter-05/patient-monitoring/src/main/java/com/magicalpipelines/PatientMonitoringTopology.java#L56-L84) to convert raw pulse events into a heart rate. The relevant code is shown here:
 ```java
 TimeWindows tumblingWindow =
   TimeWindows.of(Duration.ofSeconds(60)).grace(Duration.ofSeconds(5));
@@ -328,7 +330,7 @@ KTable<Windowed<String>, Long> pulseCounts =
 ```
 1. Materialize a windowed store with the default retention period (one day) since this value is not explicitly overridden.
 
-However, the Materialized class has an additional method, called withRetention, that we can use to specify how long Kafka Streams should keep records in a windowed store. The following code demonstrates how to specify the retention of a windowed store:
+However, the Materialized class has an additional method, called withRetention, that we can use to specify how long Kafka Streams should keep records in a windowed store. [The following code](../chapter-05/patient-monitoring/src/main/java/com/magicalpipelines/PatientMonitoringTopology.java#L56-L84)  demonstrates how to specify the retention of a windowed store:
 ```java
 TimeWindows tumblingWindow =
   TimeWindows.of(Duration.ofSeconds(60)).grace(Duration.ofSeconds(5));
@@ -344,9 +346,7 @@ KTable<Windowed<String>, Long> pulseCounts =
     .suppress(
       Suppressed.untilWindowCloses(BufferConfig.unbounded().shutDownWhenFull()));
 ```
-
-1
-Materialize a windowed store with a retention period of six hours.
+1. Materialize a windowed store with a retention period of six hours.
 
 
 Note that the retention period should always be larger than the window size and the grace period combined. In the preceding example, the retention period must be larger than 65 seconds (60 seconds for the tumbling window size + 5 seconds for the grace period). The default window retention period is one day, so lowering this value can reduce the size of your windowed state stores (and their underlying changelog topics) and therefore speed up recovery time.
@@ -376,7 +376,7 @@ Table 6-1. Topic configurations that can be used for triggering more frequent lo
 | min.cleanable.dirty.ratio | 0.5 | This configuration controls how frequently the log compactor will attempt to clean the log (assuming log compaction is enabled). By default we will avoid cleaning a log where more than 50% of the log has been compacted. This ratio bounds the maximum space wasted in the log by duplicates (with the default setting, at most, 50% of the log could contain duplicates). A higher ratio will mean fewer, more efficient cleanings but will mean more wasted space in the log. If the max.compaction.lag.ms or the min.compaction.lag.ms configurations are also specified, then the log compactor considers the log to be eligible for compaction as soon as either: (i) the dirty ratio threshold has been met and the log has had dirty (uncompacted) records for at least the min.compaction.lag.ms duration, or (ii) the log has had dirty (uncompacted) records for at most the max.compaction.lag.ms period. |
 | max.compaction.lag.ms     | Long.MAX_VALUE - 1 | The maximum time a message will remain ineligible for compaction in the log. Only applicable for logs that are being compacted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | min.compaction.lag.ms     |                    | The minimum time a message will remain uncompacted in the log. Only applicable for logs that are being compacted.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-An example of how to change two of these configs in a materialized store is shown in the following code. These topic configurations could help trigger more frequent log cleaning by reducing the segment size and also the minimum cleanable dirty ratio:
+An example of how to change two of these configs in a materialized store is shown in the [following code](advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java). These topic configurations could help trigger more frequent log cleaning by reducing the segment size and also the minimum cleanable dirty ratio:
 ```java
 Map<String, String> topicConfigs = new HashMap<>();
 topicConfigs.put("segment.bytes", "536870912"); 1
@@ -394,15 +394,15 @@ KTable<byte[], Long> counts =
                 .withValueSerde(Serdes.Long())
                 .withLoggingEnabled(topicConfigs));
 ```
-1. Reduce the segment size to 512 MB.
-2. Reduce the minimum cleanable dirty ratio to 30%.
+1. [Reduce the segment size to 512 MB](advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java#L23).
+2. [Reduce the minimum cleanable dirty ratio to 30%](advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java#L24).
 
 Now, topic compaction is needed because the underlying storage medium is theoretically unbounded. Another approach to the problem of minimizing state store size is to instead use a fixed-size data structure. While there are some drawbacks to this approach, Kafka Streams does include a state store that tackles the problem from this angle. We’ll discuss this next.
 
 #### Fixed-size LRU cache
 A less common method for ensuring state stores don’t grow indefinitely is to use an in-memory LRU cache. This is a simple key-value store that has a configurable, fixed capacity (specified by the max number of entries) that automatically deletes the least-recently used entry when the state exceeds the configured size. Furthermore, whenever an entry is removed from the in-memory store, a tombstone is automatically sent to the underlying changelog topic as well.
 
-An example of how to use an in-memory LRU map is shown here:
+An example of how to use [an in-memory LRU map]((advanced-state-management/src/main/java/com/magicalpipelines/LruFixedSizedStoreExample.java#L21-L33)) is shown here:
 ```java
 KeyValueBytesStoreSupplier storeSupplier = Stores.lruMap("counts", 10); 1
 
@@ -422,7 +422,7 @@ return builder.build();
 1. Create an in-memory LRU store named counts with a max size of 10 entries.
 2. Materialize the in-memory LRU store using a store supplier.
 
-To achieve this in the Processor API, you could use a store builder as follows:
+[To achieve this in the Processor API, you could use a store builder as follows](advanced-state-management/src/main/java/com/magicalpipelines/LruFixedSizedStoreExample.java#L37-L46):
 ```java
 StreamsBuilder builder = new StreamsBuilder();
 
@@ -434,7 +434,7 @@ StoreBuilder<KeyValueStore<String, Long>> lruStoreBuilder =
 builder.addStateStore(lruStoreBuilder);
 ```
 
-As mentioned in “Aggressive topic compaction”, compaction and deletion will not happen immediately in the underlying changelog topic that backs the LRU cache, so in the event of failure, the restore time could be higher than a persistent state store since the entire topic will need to be replayed in order to reinitialize the state store (even if it resolves to only 10 records in the LRU map!). This is a major downside to using in-memory stores that we initially discussed in “Persistent Versus In-Memory Stores”, so this option should be used with a full understanding of the trade-offs.
+As mentioned in “[Aggressive topic compaction](#aggressive-topic-compaction)”, compaction and deletion will not happen immediately in the underlying changelog topic that backs the LRU cache, so in the event of failure, the restore time could be higher than a persistent state store since the entire topic will need to be replayed in order to reinitialize the state store (even if it resolves to only 10 records in the LRU map!). This is a major downside to using in-memory stores that we initially discussed in “[Persistent Versus In-Memory Stores](../chapter-04/README.md#persistent-versus-in-memory-stores)”, so this option should be used with a full understanding of the trade-offs.
 
 This wraps up our discussion for keeping state stores and their underlying changelog topics free of unneeded records. Now, let’s look at a strategy you can pursue if it appears that your state stores are bottlenecked by either read latency or write volume.
 
@@ -491,7 +491,7 @@ Depending on your application, you may want to take a certain action when a reba
 ![Application states and their valid transitions in Kafka Streams](./material/mksk_0605.png)  
 Figure 6-5. Application states and their valid transitions in Kafka Streams
 
-The following code shows an example of how to add a State Listener to a Kafka Streams topology, which listens specifically for transitions to the rebalancing state:
+[The following code](advanced-state-management/src/main/java/com/magicalpipelines/App.java#L27-L32) shows an example of how to add a State Listener to a Kafka Streams topology, which listens specifically for transitions to the rebalancing state:
 ```java
 KafkaStreams streams = new KafkaStreams(...);
 
@@ -516,7 +516,7 @@ KafkaStreams streams = new KafkaStreams(...);
 streams.setGlobalStateRestoreListener(new MyRestoreListener());
 ```
 
-The class MyRestoreListener is an instance of a StateRestoreListener, which we have implemented in the following code block. Unlike the State Listener we built in the previous section, a State Restore Listener requires us to implement three methods, each of which is hooked into part of the life cycle of the state restoration process. The annotations of the following code describe what each method is used for:
+The class [MyRestoreListener](advanced-state-management/src/main/java/com/magicalpipelines/MyRestoreListener.java#L8-L31) is an instance of a StateRestoreListener, which we have implemented in the following code block. Unlike the State Listener we built in the previous section, a State Restore Listener requires us to implement three methods, each of which is hooked into part of the life cycle of the state restoration process. The annotations of the following code describe what each method is used for:
 ```java
 class MyRestoreListener implements StateRestoreListener {
 
@@ -573,29 +573,29 @@ Prior to Kafka Streams 2.5, rebalances were especially painful for applications 
 However, starting in [Kafka Streams 2.5](https://cwiki.apache.org/confluence/display/KAFKA/KIP-535:+Allow+state+stores+to+serve+stale+reads+during+rebalance), standby replicas can be used to serve stale results while the newly migrated state store is being initialized. This keeps your API highly available even when your application enters a rebalancing state. Recall that in Example 4-11, we learned how to retrieve the metadata for a given key in our state store. In our initial example, we extracted the ``active Kafka Streams`` instance:
 ```java
 KeyQueryMetadata metadata =
-  streams.queryMetadataForKey(storeName, key, Serdes.String().serializer());  1
+  streams.queryMetadataForKey(storeName, key, Serdes.String().serializer());  (1)
 
-String remoteHost = metadata.activeHost().host(); 2
-int remotePort = metadata.activeHost().port(); 3
+String remoteHost = metadata.activeHost().host(); (2)
+int remotePort = metadata.activeHost().port(); (3)
 ```
-1. Get the metadata for the specified key, which includes the host and port pair that a specific key should live on if it exists.
-2. Extract the hostname of the active Kafka Streams instance.
-3. Extract the port of the active Kafka Streams instance.
+1. [Get the metadata for the specified key, which includes the host and port pair that a specific key should live on if it exists](../chapter-04/video-game-leaderboard/src/main/java/com/magicalpipelines/LeaderboardService.java#L141-L143).
+2. [Extract the hostname of the active Kafka Streams instance](../chapter-04/video-game-leaderboard/src/main/java/com/magicalpipelines/LeaderboardService.java#L162).
+3. [Extract the port of the active Kafka Streams instance](../chapter-04/video-game-leaderboard/src/main/java/com/magicalpipelines/LeaderboardService.java#L163).
 
 As of version 2.5, we can retrieve the standby hosts using the following code:
 ```java
 KeyQueryMetadata metadata =
-    streams.queryMetadataForKey(storeName, key, Serdes.String().serializer()); 1
+    streams.queryMetadataForKey(storeName, key, Serdes.String().serializer()); (1)
 
-if (isAlive(metadata.activeHost())) { 2
+if (isAlive(metadata.activeHost())) { (2)
   // route the query to the active host
 } else {
   // route the query to the standby hosts
-  Set<HostInfo> standbys = metadata.standbyHosts(); 3
+  Set<HostInfo> standbys = metadata.standbyHosts(); (3)
 }
 ```
-1. Use the KafkaStreams.queryMetadataForKey method to get both the active and standby hosts for a given key.
-2. Check to see if the active host is alive. You will need to implement this yourself, but you could potentially add a State Listener (see “[Adding State Listeners](#adding-state-listeners)”) and a corresponding API endpoint in your RPC server to surface the current state of your application. isAlive should resolve to true whenever your application is in the Running state.
+1. Use the [KafkaStreams.queryMetadataForKey](../chapter-04/video-game-leaderboard/src/main/java/com/magicalpipelines/LeaderboardService.java#L141-L143) method to get both the active and standby hosts for a given key.
+2. [Check to see if the active host is alive](../chapter-04/video-game-leaderboard/src/main/java/com/magicalpipelines/LeaderboardService.java#L146). You will need to implement this yourself, but you could potentially add a State Listener (see “[Adding State Listeners](#adding-state-listeners)”) and a corresponding API endpoint in your RPC server to surface the current state of your application. isAlive should resolve to true whenever your application is in the Running state.
 3. If the active host is not alive, retrieve the standby hosts so you can query one of the replicated state stores. Note: if no standbys are configured, then this method will return an empty set.
 
 As you can see, this ability to query standby replicas ensures our application is highly available, even when the active instance is down or unable to serve queries. This wraps up our discussion of how to mitigate the impact of rebalances. Next, we’ll discuss custom state stores.
