@@ -26,19 +26,19 @@ docker-compose logs -f
 
 This tutorial includes a few different topologies. The brief description for each topology, including the command for running the topology, is shown below:
 
-- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java) that applies custom configurations to changelog topics
+- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java#L14) that applies custom configurations to changelog topics
 
   ```sh
   ./gradlew runTopicConfigsExample
   ```
   
-- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/LruFixedSizedStoreExample.java) that uses a fixed-size LRU cache as its state store:
+- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/LruFixedSizedStoreExample.java#L13) that uses a fixed-size LRU cache as its state store:
 
   ```sh
   ./gradlew runLruFixedSizedStoreExample
   ```
   
-- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TombstoneExample.java) that processes tombstones
+- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TombstoneExample.java#L7) that processes tombstones
   
   ```sh
   ./gradlew runTombstoneExample
@@ -75,9 +75,9 @@ Kafka Streams includes both **in-memory** and **persistent** state stores. The l
 
 By default, persistent state stores live in the ``/tmp/kafka-streams`` directory. You can override this by setting the ``StreamsConfig.STATE_DIR_CONFIG`` property, and given the ephemeral nature of a `/tmp` directory (the contents of this directory are deleted during system reboots/crashes), you should choose another location for persisting your application state.
 
-Since persistent state stores live on disk, we can inspect the files very easily.[1](#reference) Doing so allows us to glean a surprising amount of information from the directory and filenames alone. The file tree in Example 6-1 was taken from the patient monitoring application that we created in the previous chapter. The annotations provide additional detail about the important directories and files.
+Since persistent state stores live on disk, we can inspect the files very easily.[^1] Doing so allows us to glean a surprising amount of information from the directory and filenames alone. The file tree in Example 6-1 was taken from the patient monitoring application that we created in the previous chapter. The annotations provide additional detail about the important directories and files.
 
-Example 6-1. An example of how a persistent state store is represented on disk
+###### Example 6-1. An example of how a persistent state store is represented on disk
 ``` shell
 .
 └── dev-consumer (1)
@@ -98,13 +98,13 @@ Example 6-1. An example of how a persistent state store is represented on disk
     ├── 1_0
     │   ├── ...
 ```
-1. :man_raising_hand: The top-level directory contains the `application ID`. This is helpful to understand which applications are running on the server, especially in a shared environment where workloads can be scheduled on any number of nodes (e.g., in a Kubernetes cluster).
+1. The top-level directory contains the `application ID`. This is helpful to understand which applications are running on the server, especially in a shared environment where workloads can be scheduled on any number of nodes (e.g., in a Kubernetes cluster).
 2. Each of the second-level directories corresponds to a single Kafka Streams task. The directory name is formatted as a ``task ID``. Task IDs are composed of two parts: ``<sub-topology-id>_<partition>``. Note that, as we discussed in “[Sub-Topologies](../chapter-02/README.md#sub-topologies)”, a sub-topology might process data from one or multiple topics, depending on the logic of your program.
-3. Checkpoint files store offsets from changelog topics (see “[Changelog Topics](../chapter-06/README.md#changelog-topics)”). They indicate to Kafka Streams what data has been read into the local state store and, as you’ll see shortly, play an important role in state store recovery.
+3. Checkpoint files store offsets from changelog topics (see “[Changelog Topics](#changelog-topics)”). They indicate to Kafka Streams what data has been read into the local state store and, as you’ll see shortly, play an important role in state store recovery.
 4. The lock file is used by Kafka Streams to acquire a lock on the state directory. This helps prevent concurrency issues.
 5. The actual data is stored in named state directories. Here, ``pulse-counts`` corresponds to an explicit name that we set when materializing the state store.
 
-The main benefit of knowing what state stores look like on disk is to simply remove some of the mystery around how they work. Furthermore, the lock file and checkpoint files are especially important, and are referenced in certain error logs (for example, permissions issues could surface as a failure to write to a checkpoint file, while a concurrency issue could lead to an error about Kafka Streams failing to acquire a lock), so understanding their location and utility is helpful.
+The main benefit of knowing what state stores look like on disk is **to simply remove some of the mystery around how they work**. Furthermore, the lock file and checkpoint files are especially important, and are referenced in **certain error logs** (for example, ``permissions issues could surface as a failure to write to a checkpoint file, while a concurrency issue could lead to an error about Kafka Streams failing to acquire a lock``), so understanding their location and utility is helpful.
 
 The checkpoint file plays an important role in state store recovery. Let’s dig into this further by first looking at the fault-tolerant features of stateful applications, and then seeing how offset checkpoints are used to reduce recovery time.
 
@@ -114,9 +114,9 @@ Kafka Streams owes much of its fault-tolerant characteristics to Kafka’s stora
 However, when it comes to stateful applications, Kafka Streams takes additional measures to ensure applications are resilient to failure. This includes using changelog topics to back state stores, and standby replicas to minimize reinitialization time in the event that state is lost. We’ll discuss these Kafka Streams–specific fault-tolerant features in further detail in the following sections.
 
 ### Changelog Topics
-Unless explicitly disabled, state stores are backed by changelog topics, which are created and managed by Kafka Streams. These topics capture state updates for every key in the store, and can be replayed in the event of failure to rebuild the application state.2 In the event of a total state loss (or when spinning up a new instance), the changelog topic is replayed from the beginning. However, if a checkpoint file exists (see Example 6-1), then the state can be replayed from the checkpointed offset found in that file, since this offset indicates what data has already been read into the state store. The latter is much quicker because recovering only part of the state takes less time than recovering the full state.
+Unless explicitly disabled, state stores are backed by changelog topics, which are created and managed by Kafka Streams. These topics capture state updates for every key in the store, and can be replayed in the event of failure to rebuild the application state.2 In the event of a total state loss (or when spinning up a new instance), the changelog topic is replayed from the beginning. However, if a checkpoint file exists (see [Example 6-1](#example-6-1-an-example-of-how-a-persistent-state-store-is-represented-on-disk)), then the state can be replayed from the checkpointed offset found in that file, since this offset indicates what data has already been read into the state store. The latter is much quicker because recovering only part of the state takes less time than recovering the full state.
 
-Changelog topics are configurable using the Materialized class in the DSL. For example, in the previous chapter, we materialized a state store named pulse-counts using the following code:
+Changelog topics are configurable using the [Materialized class](../chapter-05/patient-monitoring/src/main/java/com/magicalpipelines/PatientMonitoringTopology.java#L76) in the DSL. For example, in the previous chapter, we materialized a state store named pulse-counts using the following code:
 ```java
 pulseEvents
   .groupByKey()
@@ -124,12 +124,12 @@ pulseEvents
   .count(Materialized.as("pulse-counts"));
 ```
 
-There are some additional methods on the Materialized class that allow us to customize the changelog topics even further. For example, to disable change logging completely, we could use the following code to create what is sometimes called an ephemeral store (i.e., state stores that cannot be restored on failure):
+There are some additional methods on the [Materialized class](../chapter-05/patient-monitoring/src/main/java/com/magicalpipelines/PatientMonitoringTopology.java#L76) that allow us to customize the changelog topics even further. For example, to disable change logging completely, we could use the following code to create what is sometimes called an ephemeral store (i.e., state stores that cannot be restored on failure):
 ```java
 Materialized.as("pulse-counts").withLoggingDisabled();
 ```
 
-However, disabling change logging isn’t usually a good idea since it means your state store will no longer be fault tolerant, and it prevents you from using standby replicas. When it comes to configuring changelog topics, you will more commonly either override the retention of windowed or session stores using the withRetention method (this is covered a little later in “Window retention”) or pass in certain topic configs for the changelog topic. For example, if we wanted to bump the number of insync replicas to two, we could use the following code:
+However, disabling change logging isn’t usually a good idea since it means your state store will no longer be fault tolerant, and it prevents you from using standby replicas. When it comes to configuring changelog topics, you will more commonly either override the retention of windowed or session stores using the ``withRetention`` method (this is covered a little later in “[Window retention](#window-retention)”) or pass in certain topic configs for the changelog topic. For example, if we wanted to bump the number of insync replicas to two, we could use the following code:
 ```java
 Map<String, String> topicConfigs =
   Collections.singletonMap("min.insync.replicas", "2"); 1
@@ -166,20 +166,20 @@ Configs: min.insync.replicas=2
 1.Note that changelog topics have the following naming scheme: 
 ``<⁠a⁠p⁠p⁠l⁠i​c⁠a⁠t⁠i⁠o⁠n⁠_⁠i⁠d⁠>⁠-⁠<⁠i⁠n⁠t⁠e⁠r⁠n⁠a⁠l⁠_⁠s⁠t⁠o⁠r⁠e⁠_⁠n⁠a⁠m⁠e⁠>⁠-⁠c⁠h⁠a⁠n⁠g⁠e⁠l⁠o⁠g``.
 
-One thing to note is that, at the time of this writing, you cannot reconfigure a changelog topic using this method after it has been created.3 If you need to update a topic configuration on an existing changelog topic, then you’ll need to do so using the Kafka console scripts. An example of how to manually update a changelog topic after it has been created is shown here:
+One thing to note is that, at the time of this writing, you cannot reconfigure a changelog topic using this method after it has been created.[3](#reference) If you need to update a topic configuration on an existing changelog topic, then you’ll need to do so using the Kafka console scripts. An example of how to manually update a changelog topic after it has been created is shown here:
 ```shell
-$ kafka-configs \ 1
+$ kafka-configs \ (1)
   --bootstrap-server localhost:9092 \
   --entity-type topics \
   --entity-name dev-consumer-pulse-counts-changelog \
   --alter \
-  --add-config min.insync.replicas=1 2
+  --add-config min.insync.replicas=1 (2)
 
 # output
 Completed updating config for topic dev-consumer-pulse-counts-changelog
 ```
 
-1. You can also use the kafka-topics console script. Remember to append the file extension (.sh) if you are running vanilla Kafka outside of Confluent Platform.
+1. You can also use the **kafka-topic**s console script. Remember to append the file extension (.sh) if you are running vanilla Kafka outside of Confluent Platform.
 2. Update the topic configurations.
 
 Now that we understand the purpose of the state store–backing changelog topics, as well as how to override the default topic configurations, let’s take a look at a feature that makes Kafka Streams highly available: standby replicas.
@@ -348,6 +348,7 @@ KTable<Windowed<String>, Long> pulseCounts =
 1
 Materialize a windowed store with a retention period of six hours.
 
+
 Note that the retention period should always be larger than the window size and the grace period combined. In the preceding example, the retention period must be larger than 65 seconds (60 seconds for the tumbling window size + 5 seconds for the grace period). The default window retention period is one day, so lowering this value can reduce the size of your windowed state stores (and their underlying changelog topics) and therefore speed up recovery time.
 
 So far, we’ve discussed two methods we can employ in our application code for keeping our state stores small (namely, generating tombstones and setting the retention period for windowed stores). Let’s look at another method for keeping the underlying changelog topics small: aggressive topic compaction.
@@ -359,6 +360,7 @@ The reason for this behavior is related to how Kafka represents topics on disk. 
 
 Segments are files that contain a subset of messages for a given topic partition. At any given point in time, there is always an active segment, which is the file that is currently being written to for the underlying partition. Over time, the active segments will reach their size threshold and become inactive. Only once a segment is inactive will it be eligible for cleaning.
 
+[^note]
 > ## NOTE
 > Uncompacted records are sometimes referred to as dirty. The log cleaner is a process that performs compaction on dirty logs, which benefits both the brokers, by increasing available disk space, and the Kafka Streams clients, by reducing the number of records that need to be replayed in order to rebuild a state store.
 
@@ -582,7 +584,9 @@ if (isAlive(metadata.activeHost())) { 2
 ```
 1. Use the KafkaStreams.queryMetadataForKey method to get both the active and standby hosts for a given key.
 2. Check to see if the active host is alive. You will need to implement this yourself, but you could potentially add a State Listener (see “[Adding State Listeners](#adding-state-listeners)”) and a corresponding API endpoint in your RPC server to surface the current state of your application. isAlive should resolve to true whenever your application is in the Running state.
-3. If the active host is not alive, retrieve the standby hosts so you can query one of the replicated state stores. Note: if no standbys are configured, then this method will return an empty set.
+3. If the active host is not alive, retrieve the standby hosts so you can query one of the replicated state stores. 
+
+[^note] Note: if no standbys are configured, then this method will return an empty set.
 
 As you can see, this ability to query standby replicas ensures our application is highly available, even when the active instance is down or unable to serve queries. This wraps up our discussion of how to mitigate the impact of rebalances. Next, we’ll discuss custom state stores.
 
@@ -597,7 +601,7 @@ Finally, if you do decide to implement a custom store, be aware that any storage
 You should now have a deeper understanding of how state stores are internally managed by Kafka Streams, and what options are available to you, as the developer, for ensuring your stateful applications run smoothly over time. This includes using tombstones, aggressive topic compaction, and other techniques for removing old data from state stores (and therefore reducing state reinitialization time). Also, by using standby replicas, you can reduce failover time for stateful tasks and also keep your application highly available when a rebalance occurs. Finally, rebalancing, while impactful, can be avoided to some extent using static membership, and the impact can be minimized by using a version of Kafka Streams that supports an improved rebalance protocol called incremental cooperative rebalancing.
 
 # Reference
-1. Note: you should never attempt to modify the files.
+[^1]: Note: you should never attempt to modify the files.
 2. A dedicated consumer called the restore consumer is used to replay the changelog topic when a state store needs to be reinitialized.
 3. There is a ticket for allowing internal topics to be reconfigured, which you can track at https://oreil.ly/OoKBV.
 4. Adding or removing partitions from the source topics could also trigger a rebalance.
