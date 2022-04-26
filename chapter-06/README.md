@@ -360,8 +360,13 @@ The reason for this behavior is related to how Kafka represents topics on disk. 
 
 Segments are files that contain a subset of messages for a given topic partition. At any given point in time, there is always an active segment, which is the file that is currently being written to for the underlying partition. Over time, the active segments will reach their size threshold and become inactive. Only once a segment is inactive will it be eligible for cleaning.
 
+
+[^note]:
+    Named footnotes will still render with numbers instead of the text but allow easier identification and linking.  
+    This footnote also has been made with a different syntax using 4 spaces for new lines.
+
 > # NOTE
-> Uncompacted records are sometimes referred to as dirty. The log cleaner is a process that performs compaction on dirty logs, which benefits both the brokers, by increasing available disk space, and the Kafka Streams clients, by reducing the number of records that need to be replayed in order to rebuild a state store.
+> Uncompacted records are sometimes referred to as **dirty**. The log cleaner is a process that performs compaction on dirty logs, which benefits both the brokers, by increasing available disk space, and the Kafka Streams clients, by reducing the number of records that need to be replayed in order to rebuild a state store.
 
 Since the active segment isn’t eligible for cleaning, and could therefore include a large number of uncompacted records and tombstones that would need to be replayed when initializing a state store, it is sometimes beneficial to reduce the segment size in order to enable more aggressive topic compaction.[^9] Furthermore, the log cleaner will also avoid cleaning a log if more than 50% of the log has already been cleaned/compacted. This is also configurable and can be adjusted to increase the frequency at which log cleaning occurs.
 
@@ -597,7 +602,7 @@ Finally, if you do decide to implement a custom store, be aware that any storage
 # Summary
 You should now have a deeper understanding of how state stores are internally managed by Kafka Streams, and what options are available to you, as the developer, for ensuring your stateful applications run smoothly over time. This includes using tombstones, aggressive topic compaction, and other techniques for removing old data from state stores (and therefore reducing state reinitialization time). Also, by using standby replicas, you can reduce failover time for stateful tasks and also keep your application highly available when a rebalance occurs. Finally, rebalancing, while impactful, can be avoided to some extent using static membership, and the impact can be minimized by using a version of Kafka Streams that supports an improved rebalance protocol called incremental cooperative rebalancing.
 
-# Reference
+
 [^1]: Note: you should never attempt to modify the files.
 [^2]: A dedicated consumer called the restore consumer is used to replay the changelog topic when a state store needs to be reinitialized.
 [^3]: There is a ticket for allowing internal topics to be reconfigured, which you can track at https://oreil.ly/OoKBV.
@@ -610,4 +615,6 @@ You should now have a deeper understanding of how state stores are internally ma
 [^10]: Configuration definitions come from the official Kafka documentation.
 [^11]: The distinction between this operational parameter and a business logic type of approach that suppress offers is discussed in “Watermarks, Tables, Event Time, and the Dataflow Model” by Eno Thereska et al. on the [Confluent blog](https://www.confluent.io/blog/watermarks-tables-event-time-dataflow-model/).
 [^12]: For example, the KeyValueStore interface adds the void put(K key, V value) method, among others, since it knows the underlying store will need to write key-value pairs to the underlying storage engine.
-
+[^note]:
+    Named footnotes will still render with numbers instead of the text but allow easier identification and linking.  
+    This footnote also has been made with a different syntax using 4 spaces for new lines.
