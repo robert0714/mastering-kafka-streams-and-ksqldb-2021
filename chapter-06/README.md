@@ -26,7 +26,7 @@ docker-compose logs -f
 
 This tutorial includes a few different topologies. The brief description for each topology, including the command for running the topology, is shown below:
 
-- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java#L14) that applies custom configurations to changelog topics
+- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java#L14-L20) that applies custom configurations to changelog topics
 
   ```sh
   ./gradlew runTopicConfigsExample
@@ -114,7 +114,7 @@ Kafka Streams owes much of its fault-tolerant characteristics to Kafka’s stora
 However, when it comes to stateful applications, Kafka Streams takes additional measures to ensure applications are resilient to failure. This includes using changelog topics to back state stores, and standby replicas to minimize reinitialization time in the event that state is lost. We’ll discuss these Kafka Streams–specific fault-tolerant features in further detail in the following sections.
 
 ### Changelog Topics
-Unless explicitly disabled, state stores are backed by changelog topics, which are created and managed by Kafka Streams. These topics capture state updates for every key in the store, and can be replayed in the event of failure to rebuild the application state.2 In the event of a total state loss (or when spinning up a new instance), the changelog topic is replayed from the beginning. However, if a checkpoint file exists (see [Example 6-1](#example-6-1-an-example-of-how-a-persistent-state-store-is-represented-on-disk)), then the state can be replayed from the checkpointed offset found in that file, since this offset indicates what data has already been read into the state store. The latter is much quicker because recovering only part of the state takes less time than recovering the full state.
+Unless explicitly disabled, state stores are backed by changelog topics, which are created and managed by Kafka Streams. These topics capture state updates for every key in the store, and can be replayed in the event of failure to rebuild the application state.[^2] In the event of a total state loss (or when spinning up a new instance), the changelog topic is replayed from the beginning. However, if a checkpoint file exists (see [Example 6-1](#example-6-1-an-example-of-how-a-persistent-state-store-is-represented-on-disk)), then the state can be replayed from the checkpointed offset found in that file, since this offset indicates what data has already been read into the state store. The latter is much quicker because recovering only part of the state takes less time than recovering the full state.
 
 Changelog topics are configurable using the [Materialized class](../chapter-05/patient-monitoring/src/main/java/com/magicalpipelines/PatientMonitoringTopology.java#L76) in the DSL. For example, in the previous chapter, we materialized a state store named pulse-counts using the following code:
 ```java
@@ -166,7 +166,7 @@ Configs: min.insync.replicas=2
 1.Note that changelog topics have the following naming scheme: 
 ``<⁠a⁠p⁠p⁠l⁠i​c⁠a⁠t⁠i⁠o⁠n⁠_⁠i⁠d⁠>⁠-⁠<⁠i⁠n⁠t⁠e⁠r⁠n⁠a⁠l⁠_⁠s⁠t⁠o⁠r⁠e⁠_⁠n⁠a⁠m⁠e⁠>⁠-⁠c⁠h⁠a⁠n⁠g⁠e⁠l⁠o⁠g``.
 
-One thing to note is that, at the time of this writing, you cannot reconfigure a changelog topic using this method after it has been created.[3](#reference) If you need to update a topic configuration on an existing changelog topic, then you’ll need to do so using the Kafka console scripts. An example of how to manually update a changelog topic after it has been created is shown here:
+One thing to note is that, at the time of this writing, you cannot reconfigure a changelog topic using this method after it has been created.[^3] If you need to update a topic configuration on an existing changelog topic, then you’ll need to do so using the Kafka console scripts. An example of how to manually update a changelog topic after it has been created is shown here:
 ```shell
 $ kafka-configs \ (1)
   --bootstrap-server localhost:9092 \
@@ -202,7 +202,7 @@ We’ve learned that changelog topics and standby replicas help reduce the impac
 
 However, while Kafka Streams handles failure transparently, it doesn’t change the fact that losing a state store, even temporarily, can be incredibly disruptive (especially for heavily stateful applications). Why? Because the change-logging technique for backing up state still requires us to replay each message in the underlying topic, and if that topic is huge, then rereading each record could take several minutes or, in extreme cases, even hours.
 
-The biggest culprit that leads to reinitializing state is **rebalancing**. We first encountered this term when we discussed consumer groups in “Consumer Groups”. A simplified explanation is that Kafka automatically distributes work across the active members of a consumer group, but occasionally the work needs to be redistributed in response to certain events—most notably group membership changes.[4](#reference) We won’t cover the entire rebalance protocol in depth, but the level of detail we will cover requires a quick vocabulary review:
+The biggest culprit that leads to reinitializing state is **rebalancing**. We first encountered this term when we discussed consumer groups in “Consumer Groups”. A simplified explanation is that Kafka automatically distributes work across the active members of a consumer group, but occasionally the work needs to be redistributed in response to certain events—most notably group membership changes.[^4] We won’t cover the entire rebalance protocol in depth, but the level of detail we will cover requires a quick vocabulary review:
 
 * The ``group coordinator`` is a designated broker that is responsible for maintaining the membership of a consumer group (e.g., by receiving heartbeats and triggering a rebalance when a membership change is detected).
 * The ``group leader`` is a designated consumer in each consumer group that is responsible for determining the partition assignments.
@@ -220,7 +220,7 @@ When stateful tasks are reassigned to another running instance, the underlying s
 Since the group leader (one of the consumers) is responsible for determining how work is distributed among the active consumers, there is some onus on the Kafka Streams library (which implements the load balancing logic) to prevent unnecessary state store migration. One way it achieves this is through something called a sticky assignor, and it’s something we get for free when we use Kafka Streams. We’ll explore this in the next section.
 
 ### Sticky Assignment
-To help prevent stateful tasks from being reassigned, Kafka Streams uses a custom partition assignment strategy[5](#reference) that attempts to reassign tasks to instances that previously owned the task (and therefore, should still have a copy of the underlying state store). This strategy is called sticky assignment.
+To help prevent stateful tasks from being reassigned, Kafka Streams uses a custom partition assignment strategy[^5] that attempts to reassign tasks to instances that previously owned the task (and therefore, should still have a copy of the underlying state store). This strategy is called sticky assignment.
 
 To understand the problem Kafka Streams is solving with its sticky assignor, consider the default rebalancing strategy for other types of Kafka clients. Figure 6-1 shows that when a rebalance occurs, a stateful task could potentially be migrated to another application instance, which would be extremely expensive.
 
@@ -274,7 +274,7 @@ Figure 6-4 shows how incremental cooperative rebalancing works at a high level w
 
 As you can see, the healthy application instances (including the one with the stateful task) did not need to give up their resources when a rebalance was initiated. This is a huge improvement over the eager rebalancing strategy since it allows the application to continue processing during a rebalance.
 
-There’s a lot of detailed information about incremental cooperative rebalancing that we won’t cover here, but it’s important to know that newer versions of Kafka Streams implement this protocol under the hood, so we just need to make sure we’re running with a supported version of Kafka Streams.[7](#reference)
+There’s a lot of detailed information about incremental cooperative rebalancing that we won’t cover here, but it’s important to know that newer versions of Kafka Streams implement this protocol under the hood, so we just need to make sure we’re running with a supported version of Kafka Streams.[^7]
 
 We’ve seen how incremental cooperative rebalancing can help reduce the impact of rebalances, so let’s look at a more active role application developers can take to ensure rebalances are less painful.
 
@@ -360,13 +360,13 @@ The reason for this behavior is related to how Kafka represents topics on disk. 
 
 Segments are files that contain a subset of messages for a given topic partition. At any given point in time, there is always an active segment, which is the file that is currently being written to for the underlying partition. Over time, the active segments will reach their size threshold and become inactive. Only once a segment is inactive will it be eligible for cleaning.
 
-[^note]
+[^note]:
 > ## NOTE
 > Uncompacted records are sometimes referred to as dirty. The log cleaner is a process that performs compaction on dirty logs, which benefits both the brokers, by increasing available disk space, and the Kafka Streams clients, by reducing the number of records that need to be replayed in order to rebuild a state store.
 
 Since the active segment isn’t eligible for cleaning, and could therefore include a large number of uncompacted records and tombstones that would need to be replayed when initializing a state store, it is sometimes beneficial to reduce the segment size in order to enable more aggressive topic compaction.9 Furthermore, the log cleaner will also avoid cleaning a log if more than 50% of the log has already been cleaned/compacted. This is also configurable and can be adjusted to increase the frequency at which log cleaning occurs.
 
-The topic configurations listed in Table 6-1 are useful for enabling more aggressive compaction, leading to fewer records that need to be replayed in the event of a state store needing to be reinitialized.[10](#reference)
+The topic configurations listed in Table 6-1 are useful for enabling more aggressive compaction, leading to fewer records that need to be replayed in the event of a state store needing to be reinitialized.[^10]
 
 Table 6-1. Topic configurations that can be used for triggering more frequent log cleaning/compaction
 | Configuration             | Default            | Definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -591,7 +591,7 @@ if (isAlive(metadata.activeHost())) { 2
 As you can see, this ability to query standby replicas ensures our application is highly available, even when the active instance is down or unable to serve queries. This wraps up our discussion of how to mitigate the impact of rebalances. Next, we’ll discuss custom state stores.
 
 ## Custom State Stores
-It’s also possible to implement your own state store. In order to do this, you need to implement the StateStore interface. You can either implement this directly or, more likely, use one of the higher-level interfaces like KeyValueStore, WindowStore, or SessionStore, which add additional interface methods specific to how the store is intended to be used.[12]()
+It’s also possible to implement your own state store. In order to do this, you need to implement the StateStore interface. You can either implement this directly or, more likely, use one of the higher-level interfaces like KeyValueStore, WindowStore, or SessionStore, which add additional interface methods specific to how the store is intended to be used.[^12]
 
 In addition to the StateStore interface, you will also want to implement the StoreSupplier interface, which will contain the logic for creating new instances of your custom state store. Since the performance characteristics of the built-in RocksDB-based state stores are hard to match, it’s typically not necessary to go through the very tedious and error-prone task of implementing your own custom store. For this reason, and given the sheer amount of code that would be needed just to implement a very basic custom store, we will instead point you to one of the few examples of a custom store on [GitHub](https://github.com/confluentinc/kafka-streams-examples/blob/5.4.1-post/src/main/scala/io/confluent/examples/streams/algebird/CMSStore.scala).
 
@@ -602,15 +602,15 @@ You should now have a deeper understanding of how state stores are internally ma
 
 # Reference
 [^1]: Note: you should never attempt to modify the files.
-2. A dedicated consumer called the restore consumer is used to replay the changelog topic when a state store needs to be reinitialized.
-3. There is a ticket for allowing internal topics to be reconfigured, which you can track at https://oreil.ly/OoKBV.
-4. Adding or removing partitions from the source topics could also trigger a rebalance.
-5. The internal class is called StickyTaskAssignor. Note that it is not possible to override the default partitioner in Kafka Streams.
-6. See the session.timeout.ms consumer configuration.
-7. Versions >= 2.4 use the improved rebalancing strategy. More information about incremental cooperative rebalancing can be found at https://oreil.ly/P3iVG.
-8. It’s unlikely the keyspace would be exactly evenly split in a real-world scenario, but it’s convenient for this discussion and the point remains the same.
-9. For more on this, see “[Achieving High Availability with Stateful Kafka Streams Applications](https://medium.com/transferwise-engineering/achieving-high-availability-with-stateful-kafka-streams-applications-cba429ca7238)” by Levani Kokhreidze.
-10. Configuration definitions come from the official Kafka documentation.
-11. The distinction between this operational parameter and a business logic type of approach that suppress offers is discussed in “Watermarks, Tables, Event Time, and the Dataflow Model” by Eno Thereska et al. on the [Confluent blog](https://www.confluent.io/blog/watermarks-tables-event-time-dataflow-model/).
-12. For example, the KeyValueStore interface adds the void put(K key, V value) method, among others, since it knows the underlying store will need to write key-value pairs to the underlying storage engine.
+[^2]: A dedicated consumer called the restore consumer is used to replay the changelog topic when a state store needs to be reinitialized.
+[^3]: There is a ticket for allowing internal topics to be reconfigured, which you can track at https://oreil.ly/OoKBV.
+[^4]: Adding or removing partitions from the source topics could also trigger a rebalance.
+[^5]: The internal class is called StickyTaskAssignor. Note that it is not possible to override the default partitioner in Kafka Streams.
+[^6]: See the session.timeout.ms consumer configuration.
+[^7]: Versions >= 2.4 use the improved rebalancing strategy. More information about incremental cooperative rebalancing can be found at https://oreil.ly/P3iVG.
+[^8]: It’s unlikely the keyspace would be exactly evenly split in a real-world scenario, but it’s convenient for this discussion and the point remains the same.
+[^9]: For more on this, see “[Achieving High Availability with Stateful Kafka Streams Applications](https://medium.com/transferwise-engineering/achieving-high-availability-with-stateful-kafka-streams-applications-cba429ca7238)” by Levani Kokhreidze.
+[^10]: Configuration definitions come from the official Kafka documentation.
+[^11]: The distinction between this operational parameter and a business logic type of approach that suppress offers is discussed in “Watermarks, Tables, Event Time, and the Dataflow Model” by Eno Thereska et al. on the [Confluent blog](https://www.confluent.io/blog/watermarks-tables-event-time-dataflow-model/).
+[^12]: For example, the KeyValueStore interface adds the void put(K key, V value) method, among others, since it knows the underlying store will need to write key-value pairs to the underlying storage engine.
 
