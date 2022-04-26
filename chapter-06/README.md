@@ -1,5 +1,5 @@
 # Chapter 6. Advanced State Management
-This code corresponds with Chapter 6 in the upcoming O'Reilly book: [Mastering Kafka Streams and ksqlDB][book] by Mitch Seymour. The code examples here make up a small percentage of the topics we actually cover in this chapter so I highly recommend reading that chapter for a more complete understanding of advanced state management.
+This code corresponds with Chapter 6 in the upcoming O'Reilly book: [Mastering Kafka Streams and ksqlDB][book] by Mitch Seymour. The code examples here make up a small percentage of the topics we actually cover in this chapter so I highly recommend reading that chapter for a more complete understanding of **advanced state management**.
 
 [book]: https://www.kafka-streams-book.com/
 
@@ -26,19 +26,19 @@ docker-compose logs -f
 
 This tutorial includes a few different topologies. The brief description for each topology, including the command for running the topology, is shown below:
 
-- [An example topology](chapter-06/advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java) that applies custom configurations to changelog topics
+- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java) that applies custom configurations to changelog topics
 
   ```sh
   ./gradlew runTopicConfigsExample
   ```
   
-- [An example topology](chapter-06/advanced-state-management/src/main/java/com/magicalpipelines/LruFixedSizedStoreExample.java) that uses a fixed-size LRU cache as its state store:
+- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/LruFixedSizedStoreExample.java) that uses a fixed-size LRU cache as its state store:
 
   ```sh
   ./gradlew runLruFixedSizedStoreExample
   ```
   
-- [An example topology](chapter-06/advanced-state-management/src/main/java/com/magicalpipelines/TombstoneExample.java) that processes tombstones
+- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TombstoneExample.java) that processes tombstones
   
   ```sh
   ./gradlew runTombstoneExample
@@ -71,16 +71,16 @@ Some of the questions we will answer include:
 
 Let’s start by looking at the on-disk layout of persistent state stores.
 ## Persistent Store Disk Layout
-Kafka Streams includes both in-memory and persistent state stores. The latter category of state stores are generally preferred because they can help reduce the recovery time of an application whenever state needs to be reinitialized (e.g., in the event of failure or task migration).
+Kafka Streams includes both **in-memory** and **persistent** state stores. The latter category of state stores are generally preferred because `they can help reduce the recovery time of an application whenever state needs to be reinitialized` (e.g., in the event of failure or task migration).
 
-By default, persistent state stores live in the ``/tmp/kafka-streams`` directory. You can override this by setting the ``StreamsConfig.STATE_DIR_CONFIG`` property, and given the ephemeral nature of a /tmp directory (the contents of this directory are deleted during system reboots/crashes), you should choose another location for persisting your application state.
+By default, persistent state stores live in the ``/tmp/kafka-streams`` directory. You can override this by setting the ``StreamsConfig.STATE_DIR_CONFIG`` property, and given the ephemeral nature of a `/tmp` directory (the contents of this directory are deleted during system reboots/crashes), you should choose another location for persisting your application state.
 
 Since persistent state stores live on disk, we can inspect the files very easily.[1](#reference) Doing so allows us to glean a surprising amount of information from the directory and filenames alone. The file tree in Example 6-1 was taken from the patient monitoring application that we created in the previous chapter. The annotations provide additional detail about the important directories and files.
 
 Example 6-1. An example of how a persistent state store is represented on disk
-```shell
+``` shell
 .
-└── dev-consumer 1
+└── dev-consumer (1)
     ├── 0_0
     │   ├── .lock
     │   └── pulse-counts
@@ -90,28 +90,19 @@ Example 6-1. An example of how a persistent state store is represented on disk
     ├── 0_2
     │   ├── .lock
     │   └── pulse-counts
-    ├── 0_3 2
-    │   ├── .checkpoint 3
-    │   ├── .lock 4
-    │   └── pulse-counts 5
+    ├── 0_3 (2)
+    │   ├── .checkpoint (3)
+    │   ├── .lock (4)
+    │   └── pulse-counts (5)
     │       └── ...
     ├── 1_0
     │   ├── ...
 ```
-1
-The top-level directory contains the application ID. This is helpful to understand which applications are running on the server, especially in a shared environment where workloads can be scheduled on any number of nodes (e.g., in a Kubernetes cluster).
-
-2
-Each of the second-level directories corresponds to a single Kafka Streams task. The directory name is formatted as a task ID. Task IDs are composed of two parts: <sub-topology-id>_<partition>. Note that, as we discussed in “Sub-Topologies”, a sub-topology might process data from one or multiple topics, depending on the logic of your program.
-
-3
-Checkpoint files store offsets from changelog topics (see “Changelog Topics”). They indicate to Kafka Streams what data has been read into the local state store and, as you’ll see shortly, play an important role in state store recovery.
-
-4
-The lock file is used by Kafka Streams to acquire a lock on the state directory. This helps prevent concurrency issues.
-
-5
-The actual data is stored in named state directories. Here, ``pulse-counts`` corresponds to an explicit name that we set when materializing the state store.
+1. :man_raising_hand: The top-level directory contains the `application ID`. This is helpful to understand which applications are running on the server, especially in a shared environment where workloads can be scheduled on any number of nodes (e.g., in a Kubernetes cluster).
+2. Each of the second-level directories corresponds to a single Kafka Streams task. The directory name is formatted as a ``task ID``. Task IDs are composed of two parts: ``<sub-topology-id>_<partition>``. Note that, as we discussed in “[Sub-Topologies](../chapter-02/README.md#sub-topologies)”, a sub-topology might process data from one or multiple topics, depending on the logic of your program.
+3. Checkpoint files store offsets from changelog topics (see “[Changelog Topics](../chapter-06/README.md#changelog-topics)”). They indicate to Kafka Streams what data has been read into the local state store and, as you’ll see shortly, play an important role in state store recovery.
+4. The lock file is used by Kafka Streams to acquire a lock on the state directory. This helps prevent concurrency issues.
+5. The actual data is stored in named state directories. Here, ``pulse-counts`` corresponds to an explicit name that we set when materializing the state store.
 
 The main benefit of knowing what state stores look like on disk is to simply remove some of the mystery around how they work. Furthermore, the lock file and checkpoint files are especially important, and are referenced in certain error logs (for example, permissions issues could surface as a failure to write to a checkpoint file, while a concurrency issue could lead to an error about Kafka Streams failing to acquire a lock), so understanding their location and utility is helpful.
 
