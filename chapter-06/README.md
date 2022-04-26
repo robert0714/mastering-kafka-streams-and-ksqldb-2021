@@ -630,15 +630,15 @@ You should now have a deeper understanding of how state stores are internally ma
        participant iframe
        dotcom->>iframe: loads html w/ iframe url
    ```
-  - Flowchart
+  - Figure 6-5. Application states and their valid transitions in Kafka Streams
    ```mermaid
      graph TD;
          Created-->Running;
-         Created-->NotRunning;
+         Created-->Not Running;
          Running-->Error;
          Running-->Rebalancing;
          Rebalancing-->Error;
-         Rebalancing-->PendingShutdown;
-         Error-->PendingShutdown;
-         PendingShutdown-->NotRunning;
+         Rebalancing-->Pending Shutdown;
+         Error-->Pending Shutdown;
+         Pending Shutdown-->Not Running;
    ```  
