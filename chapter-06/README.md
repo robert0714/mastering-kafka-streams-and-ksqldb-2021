@@ -26,19 +26,19 @@ docker-compose logs -f
 
 This tutorial includes a few different topologies. The brief description for each topology, including the command for running the topology, is shown below:
 
-- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java#L14-L20) that applies custom configurations to changelog topics
+- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TopicConfigsExample.java#L14-L40) that applies custom configurations to changelog topics
 
   ```sh
   ./gradlew runTopicConfigsExample
   ```
   
-- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/LruFixedSizedStoreExample.java#L13) that uses a fixed-size LRU cache as its state store:
+- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/LruFixedSizedStoreExample.java#L13-L48) that uses a fixed-size LRU cache as its state store:
 
   ```sh
   ./gradlew runLruFixedSizedStoreExample
   ```
   
-- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TombstoneExample.java#L7) that processes tombstones
+- [An example topology](advanced-state-management/src/main/java/com/magicalpipelines/TombstoneExample.java#L7-L39) that processes tombstones
   
   ```sh
   ./gradlew runTombstoneExample
@@ -361,10 +361,6 @@ The reason for this behavior is related to how Kafka represents topics on disk. 
 Segments are files that contain a subset of messages for a given topic partition. At any given point in time, there is always an active segment, which is the file that is currently being written to for the underlying partition. Over time, the active segments will reach their size threshold and become inactive. Only once a segment is inactive will it be eligible for cleaning.
 
 
-[^note]:
-    Named footnotes will still render with numbers instead of the text but allow easier identification and linking.  
-    This footnote also has been made with a different syntax using 4 spaces for new lines.
-
 > # NOTE
 > Uncompacted records are sometimes referred to as **dirty**. The log cleaner is a process that performs compaction on dirty logs, which benefits both the brokers, by increasing available disk space, and the Kafka Streams clients, by reducing the number of records that need to be replayed in order to rebuild a state store.
 
@@ -615,6 +611,14 @@ You should now have a deeper understanding of how state stores are internally ma
 [^10]: Configuration definitions come from the official Kafka documentation.
 [^11]: The distinction between this operational parameter and a business logic type of approach that suppress offers is discussed in “Watermarks, Tables, Event Time, and the Dataflow Model” by Eno Thereska et al. on the [Confluent blog](https://www.confluent.io/blog/watermarks-tables-event-time-dataflow-model/).
 [^12]: For example, the KeyValueStore interface adds the void put(K key, V value) method, among others, since it knows the underlying store will need to write key-value pairs to the underlying storage engine.
-[^note]:
-    Named footnotes will still render with numbers instead of the text but allow easier identification and linking.  
-    This footnote also has been made with a different syntax using 4 spaces for new lines.
+
+
+  - Class diagram
+   ```mermaid
+   classDiagram
+       class Duck{
+        -weight
+         +swim()
+         +quack()
+       }
+   ```
