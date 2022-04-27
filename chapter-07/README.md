@@ -713,9 +713,9 @@ Now, our wind turbines can query our REST service and synchronize their own stat
 ## Combining the Processor API with the DSL
 We’ve verified that our application works. However, if you look closely at our code, you’ll see that only one of the topology steps requires the low-level access that the Processor API offers. The step I’m referring to is the **Digital Twin Processor** step (see step 3 in [Figure 7-1](#figure-7-1-the-topology-that-we-will-be-implementing-for-our-iot-digital-twin-service)), which leverages an important feature of the Processor API: the ability to schedule periodic functions.
 
-Since Kafka Streams allows us to combine the Processor API and the DSL, we can easily refactor our application to only use the Processor API for the **Digital Twin Processor** step, and to use the DSL for everything else. The biggest benefit of performing this kind of refactoring is that other stream processing steps can be simplified. In this tutorial, the High Winds Flatmap Processor offers the biggest opportunity of simplification, but in larger applications, this kind of refactoring reduces complexity on an even greater scale.
+Since Kafka Streams allows us to combine the Processor API and the DSL, we can easily refactor our application to only use the Processor API for the **Digital Twin Processor** step, and to use the DSL for everything else. The biggest benefit of performing this kind of refactoring is that other stream processing steps can be simplified. In this tutorial, the **High Winds Flatmap Processor** offers the biggest opportunity of simplification, but in larger applications, this kind of refactoring reduces complexity on an even greater scale.
 
-The first two steps in our processor topology (registering the source processors and generating a shutdown signal using a flatMap-like operation) can be refactored using operators we’ve already discussed in this book. Specifically, we can make the following changes:
+The first two steps in our processor topology (registering the source processors and generating a shutdown signal using a **flatMap**-like operation) can be refactored using operators we’ve already discussed in this book. Specifically, we can make the following changes:
 <table>
     <tr>
         <td>Processor API</td>
@@ -756,14 +756,14 @@ KStream <String, TurbineState>  highWinds =
 As you can see, these changes are pretty straightforward. However, step 3 in our topology actually does require the Processor API, so how do we go about combining the DSL and Processor API in this step? The answer lies in a special set of DSL operators, which we will explore next.
 
 ## Processors and Transformers
-The DSL includes a special set of operators that allow us to use the Processor API whenever we need lower-level access to state stores, record metadata, and processor context (which can be used for scheduling periodic functions, among other things). These special operators are broken into two categories: processors and transformers. The following outlines the distinction between these two groups:
+The DSL includes a special set of operators that allow us to use the Processor API whenever we need lower-level access to state stores, record metadata, and processor context (which can be used for scheduling periodic functions, among other things). These special operators are broken into two categories: **processors** and **transformers** . The following outlines the distinction between these two groups:
 
-* A processor is a terminal operation (meaning it returns void and downstream operators cannot be chained), and the computational logic must be implemented using the Processor interface (which we first discussed in “Adding Stateless Stream Processors”). Processors should be used whenever you need to leverage the Processor API from the DSL, but don’t need to chain any downstream operators. There is currently only one variation of this type of operator, as shown in the following table:
+* A ***processor*** is a ***terminal operation*** (meaning it returns void and downstream operators cannot be chained), and the computational logic must be implemented using the **Processor** interface (which we first discussed in “[Adding Stateless Stream Processors](#adding-stateless-stream-processors)”). Processors should be used whenever you need to leverage the Processor API from the DSL, but don’t need to chain any downstream operators. There is currently only one variation of this type of operator, as shown in the following table:
 
     | DSL operator | Interface to implement | Description                                |
     |--------------|------------------------|--------------------------------------------|
     | process      | Processor              | Apply a Processor to each record at a time |
-* Transformers are a more diverse set of operators and can return one or more records (depending on which variation you use), and are therefore more optimal if you need to chain a downstream operator. The variations of the transform operator are shown in Table 7-4.
+* ***Transformers*** are a more diverse set of operators and can return one or more records (depending on which variation you use), and are therefore more optimal if you need to chain a downstream operator. The variations of the transform operator are shown in Table 7-4.
 
 ###### Table 7-4. Various transform operators that are available in Kafka Streams
 <table>
@@ -810,10 +810,11 @@ The DSL includes a special set of operators that allow us to use the Processor A
         <td>1:N</td>
     </tr>
 </table>
-[^a]: Though 1:N transformations are technically supported, transform is better for 1:1 or 1:0 transformations in which a single record is returned directly, since the ProcessorContext#forward approach is not type-safe. Therefore, if you need to forward multiple records from your transform, flatTransform is recommended instead, since it is type-safe.
+
+[^a]: Though 1:N transformations are technically supported, transform is better for 1:1 or 1:0 transformations in which a single record is returned directly, since the **ProcessorContext#forward** approach is not type-safe. Therefore, if you need to forward multiple records from your transform, flatTransform is recommended instead, since it is type-safe.
 
 
-No matter which variation you choose, if your operator is stateful, you will need to connect the state store to your topology builder before adding your new operator. Since we are refactoring our stateful Digital Twin Processor step, let’s go ahead and do that:
+No matter which variation you choose, if your operator is stateful, you will need to connect the state store to your topology builder before adding your new operator. Since we are refactoring our stateful **Digital Twin Processor step**, let’s go ahead and do that:
 ```java
 StoreBuilder<KeyValueStore<String, DigitalTwin>> storeBuilder =
   Stores.keyValueStoreBuilder(
@@ -823,23 +824,23 @@ StoreBuilder<KeyValueStore<String, DigitalTwin>> storeBuilder =
 
 builder.addStateStore(storeBuilder); 1
 ```
-1. In [Example 7-4](#example-7-4-example-usage-of-the-addstatestore-method), we discussed an optional second parameter to the Topology#addStateStore method, which specifies the processor names that should be connected with the state store. Here, we omit the second parameter, so this state store is dangling (though we will connect it in the next code block).
+1. In [Example 7-4](#example-7-4-example-usage-of-the-addstatestore-method), we discussed an optional second parameter to the **Topology#addStateStore** method, which specifies the processor names that should be connected with the state store. Here, we omit the second parameter, so this state store is ***dangling*** (though we will connect it in the next code block).
 
-Now, we need to make a decision. Do we use a processor or transformer for refactoring the Digital Twin Processor step? Looking at the definitions in the preceding tables, you may be tempted to use the process operator since we already implemented the Processor interface in the pure Processor API version of our app (see [Example 7-5](#example-7-5-a-stateful-processor-for-creating-digital-twin-records)). If we were to take this approach (which is problematic for reasons we’ll discuss shortly), we’d end up with the following implementation:
+Now, we need to make a decision. Do we use a processor or transformer for refactoring the **Digital Twin Processor** step? Looking at the definitions in the preceding tables, you may be tempted to use the process operator since we already implemented the Processor interface in the pure Processor API version of our app (see [Example 7-5](#example-7-5-a-stateful-processor-for-creating-digital-twin-records)). If we were to take this approach (which is problematic for reasons we’ll discuss shortly), we’d end up with the following implementation:
 ```java
 highWinds.process(
   DigitalTwinProcessor::new, 1
   "digital-twin-store"); 2
 ```
-1. A ProcessSupplier, which is used to retrieve an instance of our DigitalTwinProcessor.
+1. A ProcessSupplier, which is used to retrieve an instance of our **DigitalTwinProcessor**.
 2. The name of the state store that our processor will interact with.
 
-Unfortunately, this isn’t ideal because we need to connect a sink processor to this node, and the process operator is a terminal operation. Instead, one of the transformer operators would work better here since it allows us to easily connect a sink processor (as we’ll see shortly). Now, looking at [Table 7-4](#table-7-4-various-transform-operators-that-are-available-in-kafka-streams), let’s find an operator that meets our requirements:
+Unfortunately, this isn’t ideal because we need to connect a sink processor to this node, and the **process** operator is a terminal operation. Instead, one of the transformer operators would work better here since it allows us to easily connect a sink processor (as we’ll see shortly). Now, looking at [Table 7-4](#table-7-4-various-transform-operators-that-are-available-in-kafka-streams), let’s find an operator that meets our requirements:
 
 * Each input record will always produce one output record (1:1 mapping)
 * We need read-only access to the record key since we’re performing point lookups in our state store, but do not need to modify the key in any way
 
-The operator that best fits these requirements is transformValues (the variation that uses a ValueTransformerWithKey). We’ve already implemented the computational logic for this step using a Processor (see [Example 7-5](#example-7-5-a-stateful-processor-for-creating-digital-twin-records)), so we just need to implement the ValueTransformerWithKey interface and copy the logic from the process method in [Example 7-5](#example-7-5-a-stateful-processor-for-creating-digital-twin-records) to the transform method, shown in the following. Most of the code has been omitted because it’s the same as the processor implementation. The changes are highlighted in the annotations following this example:
+The operator that best fits these requirements is **transformValues** (the variation that uses a **ValueTransformerWithKey**). We’ve already implemented the computational logic for this step using a Processor (see [Example 7-5](#example-7-5-a-stateful-processor-for-creating-digital-twin-records)), so we just need to implement the **ValueTransformerWithKey** interface and copy the logic from the process method in [Example 7-5](#example-7-5-a-stateful-processor-for-creating-digital-twin-records) to the **transform** method, shown in the following. Most of the code has been omitted because it’s the same as the processor implementation. The changes are highlighted in the annotations following this example:
 
 ```java
 public class DigitalTwinValueTransformerWithKey
@@ -866,8 +867,8 @@ public class DigitalTwinValueTransformerWithKey
   }
 }
 ```
-1. Implement the ValueTransformerWithKey interface. String refers to the key type, TurbineState refers to the value type of the input record, and DigitalTwin refers to the value type of the output record.
-2. Instead of using context.forward to send records to downstream processors, we can return the record directly from the transform method. As you can see, this is already feeling much more DSL-like.
+1. Implement the **ValueTransformerWithKey** interface. **String** refers to the key type, TurbineState refers to the value type of the input record, and **DigitalTwin** refers to the value type of the output record.
+2. Instead of using **context.forward** to send records to downstream processors, we can return the record directly from the **transform** method. As you can see, this is already feeling much more DSL-like.
 
 With our transformer implementation in place, we can add the following line to our application:
 
@@ -959,9 +960,9 @@ Either implementation is perfectly fine. But going back to something I mentioned
 
 The benefits of the hybrid DSL + Processor API implementation are:
 * It’s easier to construct a mental map of your dataflow by chaining operators instead of having to define the relationship between processors using node names and parent names.
-* The DSL has lambda support for most operators, which can be beneficial for succinct transformations (the Processor API requires you to implement the Processor interface, even for simple operations, which can be tedious).
-* Although we didn’t need to rekey any records in this tutorial, the method for doing this in the Processor API is much more tedious. You not only need to implement the Processor interface for a simple rekey operation, but you also have to handle the rewrite to an intermediate repartition topic (this involves adding an additional sink and source processor explicitly, which can lead to unnecessarily complex code).
-* The DSL operators give us a standard vocabulary for defining what happens at a given stream processing step. For example, we can infer that a flatMap operator may produce a different number of records than the input, without knowing anything else about the computational logic. On the other hand, the Processor API makes it easy to disguise the nature of a given Processor implementation, which hurts code readability and can have a negative impact on maintenance.
+* The DSL has lambda support for most operators, which can be beneficial for succinct transformations (the Processor API requires you to implement the **Processor** interface, even for simple operations, which can be tedious).
+* Although we didn’t need to rekey any records in this tutorial, the method for doing this in the Processor API is much more tedious. You not only need to implement the **Processor** interface for a simple rekey operation, but you also have to handle the rewrite to an intermediate repartition topic (this involves adding an additional sink and source processor explicitly, which can lead to unnecessarily complex code).
+* The DSL operators give us a standard vocabulary for defining what happens at a given stream processing step. For example, we can infer that a **flatMap** operator may produce a different number of records than the input, without knowing anything else about the computational logic. On the other hand, the Processor API makes it easy to disguise the nature of a given **Processor** implementation, which hurts code readability and can have a negative impact on maintenance.
 * The DSL also gives us a common vocabulary for different types of streams. These include pure record streams, local aggregated streams (which we usually refer to as tables), and global aggregated streams (which we refer to as global tables).
 
 Therefore, I usually recommend leveraging the DSL’s special set of operators for using the Processor API whenever you need lower-level access, as opposed to implementing an application purely in the Processor API.
