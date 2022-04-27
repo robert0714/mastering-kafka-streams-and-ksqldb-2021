@@ -449,13 +449,13 @@ We’ve now implemented the first part of step 3 in our processor topology. The 
 ## Periodic Functions with Punctuate
 Depending on your use case, you may need to perform some periodic task in your Kafka Streams application. This is one area where the Processor API really shines, since it allows you to easily schedule a task using the ``ProcessorContext#schedule`` method. Recall that in “[Tombstones](../chapter-06/README.md#tombstones)”, we discussed how to keep our state store size to a minimum by removing unneeded records. In this tutorial, we will present another method for cleaning out state stores that leverages this task scheduling capability. Here, we will remove all digital twin records that haven’t seen any state updates in the last seven days. We will assume these turbines are no longer active or are under long-term maintenance, and therefore we’ll delete these records from our key-value store.
 
-In [Chapter 5](../chapter-05/README.md), we showed that when it comes to stream processing, time is a complex subject. When we think about when a periodic function will execute in Kafka Streams, we are reminded of this complexity. There are two **punctuation types** (i.e., timing strategies) that you can select from, as shown in [Table 7-2]().
+In [Chapter 5](../chapter-05/README.md), we showed that when it comes to stream processing, **time** is a complex subject. When we think about **when** a periodic function will execute in Kafka Streams, we are reminded of this complexity. There are two **punctuation types** (i.e., timing strategies) that you can select from, as shown in [Table 7-2]().
 
 ###### Table 7-2. The types of punctuations that are available in Kafka Streams
 | Punctuation type | Enum                            | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 |------------------|---------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Stream time      | PunctuationType.STREAM_TIME     | Stream time is the highest timestamp observed for a particular topic-partition. It is initially unknown and can only increase or stay the same. It advances only when new data is seen, so if you use this punctuation type, then your function will not execute unless data arrives on a continuous basis.                                                                                                                                                         |
-| Wall clock time  | PunctuationType.WALL_CLOCK_TIME | The local system time, which is advanced during each iteration of the consumer poll method. The upper bound for how often this gets updated is defined by the S⁠t⁠r⁠e⁠a⁠m⁠s​C⁠o⁠n⁠f⁠i⁠g⁠#⁠P⁠O⁠L⁠L⁠_⁠M⁠S⁠_⁠C⁠O⁠N⁠F⁠I⁠G configuration, which is the maximum amount of time (in milliseconds) the underlying poll method will block as it waits for new data. This means periodic functions will continue to execute regardless of whether or not new messages arrive. |
+| Stream time      | **PunctuationType.STREAM_TIME**     | Stream time is the highest timestamp observed for a particular topic-partition. It is initially unknown and can only increase or stay the same. It advances only when new data is seen, so if you use this punctuation type, then your function will not execute unless data arrives on a continuous basis.                                                                                                                                                         |
+| Wall clock time  | **PunctuationType.WALL_CLOCK_TIME** | The local system time, which is advanced during each iteration of the consumer poll method. The upper bound for how often this gets updated is defined by the **S⁠t⁠r⁠e⁠a⁠m⁠s​C⁠o⁠n⁠f⁠i⁠g⁠#⁠P⁠O⁠L⁠L⁠_⁠M⁠S⁠_⁠C⁠O⁠N⁠F⁠I⁠G** configuration, which is the maximum amount of time (in milliseconds) the underlying poll method will block as it waits for new data. This means periodic functions will continue to execute regardless of whether or not new messages arrive. |
 
 Since we don’t want our periodic function to be tied to new data arriving (in fact, the very presence of this TTL (“time to live”) function is based on the assumption that data may stop arriving), then we will use wall clock time as our punctuation type. Now that we’ve decided which abstraction to use, the rest of the work is simply a matter of scheduling and implementing our TTL function.
 
@@ -465,7 +465,7 @@ The following code shows our implementation:
 public class DigitalTwinProcessor
     implements Processor<String, TurbineState, String, DigitalTwin> {
 
-  private Cancellable punctuator; (1
+  private Cancellable punctuator; (1)
 
   // other omitted for brevity
 
@@ -474,31 +474,31 @@ public class DigitalTwinProcessor
 
     punctuator = this.context.schedule(
         Duration.ofMinutes(5),
-        PunctuationType.WALL_CLOCK_TIME, this::enforceTtl); (2
+        PunctuationType.WALL_CLOCK_TIME, this::enforceTtl); (2)
 
     // ...
   }
 
   @Override
   public void close() {
-    punctuator.cancel(); (3
+    punctuator.cancel(); (3)
   }
 
   public void enforceTtl(Long timestamp) {
-    try (KeyValueIterator<String, DigitalTwin> iter = kvStore.all()) { (4
+    try (KeyValueIterator<String, DigitalTwin> iter = kvStore.all()) { (4)
 
       while (iter.hasNext()) {
         KeyValue<String, DigitalTwin> entry = iter.next();
-        TurbineState lastReportedState = entry.value.getReported(); (5
+        TurbineState lastReportedState = entry.value.getReported(); (5)
         if (lastReportedState == null) {
           continue;
         }
 
         Instant lastUpdated = Instant.parse(lastReportedState.getTimestamp());
         long daysSinceLastUpdate =
-          Duration.between(lastUpdated, Instant.now()).toDays(); (6
+          Duration.between(lastUpdated, Instant.now()).toDays(); (6)
         if (daysSinceLastUpdate >= 7) {
-          kvStore.delete(entry.key); (7
+          kvStore.delete(entry.key); (7)
         }
       }
     }
@@ -507,8 +507,8 @@ public class DigitalTwinProcessor
   // ...
 }
 ```
-1. When we schedule the punctuator function, it will return a Cancellable object that we can use to stop the scheduled function later on. We’ll use an object variable named punctuator to keep track of this object.
-2. Schedule our periodic function to execute every five minutes based on wall clock time, and save the returned Cancellable under the punctuator property (see the preceding callout).
+1. When we schedule the punctuator function, it will return a **Cancellable** object that we can use to stop the scheduled function later on. We’ll use an object variable named **punctuator** to keep track of this object.
+2. Schedule our periodic function to execute every five minutes based on wall clock time, and save the returned **Cancellable** under the **punctuator** property (see the preceding callout).
 3. Cancel the punctuator when our processor is closed (e.g., during a clean shutdown of our Kafka Streams application).
 4. During each invocation of our function, retrieve each value in our state store. Note that we use a try-with-resources statement to ensure the iterator is closed properly, which will prevent resource leaks.
 5. Extract the last reported state of the current record (which corresponds to a physical wind turbine).
@@ -521,7 +521,7 @@ public class DigitalTwinProcessor
 As you can see, scheduling periodic functions is extremely easy. Next, let’s look at another area where the Processor API shines: accessing record metadata.
 
 ## Accessing Record Metadata
-When we use the DSL, we typically only have access to a record’s key and value. However, there’s a lot of additional information associated with a given record that is not exposed by the DSL, but that we can access using the Processor API. Some of the more prominent examples of record metadata that you might want to access are shown in [Table 7-3](#table-7-3-methods-for-accessing-additional-record-metadata). Note that the context variable in the following table refers to an instance of ProcessorContext, which is made available in the init method, as we first showed in Example 7-3.
+When we use the DSL, we typically only have access to a record’s key and value. However, there’s a lot of additional information associated with a given record that is not exposed by the DSL, but that we can access using the Processor API. Some of the more prominent examples of record metadata that you might want to access are shown in [Table 7-3](#table-7-3-methods-for-accessing-additional-record-metadata). Note that the **context** variable in the following table refers to an instance of **ProcessorContext**, which is made available in the **init** method, as we first showed in Example 7-3.
 
 ###### Table 7-3. Methods for accessing additional record metadata
 | Metadata       | Example             |
@@ -545,16 +545,16 @@ headers.add("hello", "world".getBytes(StandardCharsets.UTF_8)); 1
 headers.remove("goodbye"); 2
 headers.toArray(); 3
 ```
-1. Add a header named hello. This header will be propagated to downstream processors.
-2. Remove a header named goodbye.
+1. Add a header named **hello**. This header will be propagated to downstream processors.
+2. Remove a header named **goodbye**.
 3. Get an array of all of the available headers. You could iterate over this and do something with each.
 
-Finally, if you’d like to trace the origin of a record, the topic() method could be useful for this purpose. In this tutorial, we don’t need to do this, or really access any metadata at all, but you should now have a good understanding of how to access additional metadata in case you encounter a use case that requires it in the future.
+Finally, if you’d like to trace the origin of a record, the ``topic()`` method could be useful for this purpose. In this tutorial, we don’t need to do this, or really access any metadata at all, but you should now have a good understanding of how to access additional metadata in case you encounter a use case that requires it in the future.
 
 We’re ready to move to the next step of our processor topology and learn how to add a sink processor using the Processor API.
 
 ## Adding Sink Processors
-Tackling step 4 of our processor topology (see [Figure 7-1](#figure-7-1-the-topology-that-we-will-be-implementing-for-our-iot-digital-twin-service)). involves adding a sink processor that will write all digital twin records to an output topic called digital-twins. This is very simple with the Processor API, so this section will be short. We simply need to use the addSink method and specify a few additional parameters, which are detailed in the following code:
+Tackling step 4 of our processor topology (see [Figure 7-1](#figure-7-1-the-topology-that-we-will-be-implementing-for-our-iot-digital-twin-service)). involves adding a sink processor that will write all digital twin records to an output topic called **digital-twins**. This is very simple with the Processor API, so this section will be short. We simply need to use the **addSink** method and specify a few additional parameters, which are detailed in the following code:
 ```java
 builder.addSink(
   "Digital Twin Sink", 1
@@ -569,7 +569,7 @@ builder.addSink(
 4. The value serializer.
 5. The name of one or more parent nodes to connect to this sink.
 
-That’s all there is to adding a sink processor. Of course, as with most methods in Kafka Streams, there are some additional variations of this method you may want to utilize. For example, one variation allows you to specify a custom StreamPartitioner to map the output record to a partition number. Another variation allows you to exclude the key and value serializers and, instead, use the default serializers that are derived from the DEFAULT_KEY_SERDE_CLASS_CONFIG property. But no matter which overloaded method you use, adding a sink processor is a pretty simple operation.
+That’s all there is to adding a sink processor. Of course, as with most methods in Kafka Streams, there are some additional variations of this method you may want to utilize. For example, one variation allows you to specify a custom **StreamPartitioner** to map the output record to a partition number. Another variation allows you to exclude the key and value serializers and, instead, use the default serializers that are derived from the **DEFAULT_KEY_SERDE_CLASS_CONFIG** property. But no matter which overloaded method you use, adding a sink processor is a pretty simple operation.
 
 Let’s move on to the final step of exposing digital twin records to external services (including the wind turbines themselves, which will synchronize their state to the digital twin records in our state store).
 
@@ -653,13 +653,13 @@ builder.addSink( 7
     JsonSerdes.DigitalTwin().serializer(),
     "Digital Twin Processor");
 ```
-1. Create a ``source processor`` named Desired State Events that consumes data from the ``desired-state-events`` topic. This is the equivalent of a ``stream`` in the DSL.
-2. Create a ``source processor`` named Reported State Events that consumes data from the ``reported-state-events`` topic. This is also the equivalent of a ``stream`` in the DSL.
-3. Add a ``stream processor`` named High ``Winds Flatmap Processor`` that generates a shutdown signal if high winds are detected. This processor receives events from the **Reported State Events** processor. This would be a flatMap operation in the DSL since there is a 1:N relationship between the number of input and output records for this stream processor. [Example 7-3](#example-7-3-a-processor-implementation-that-detects-dangerous-wind-speeds) shows the implementation of this processor.
-4. Add a ``stream processor`` named Digital Twin Processor that creates digital twin records using data emitted from both the High Winds Flatmap Processor and Desired State Events. This would be a merge operation in the DSL since multiple sources are involved. Furthermore, since this is a stateful processor, this would be the equivalent of an aggregated table in the DSL. [Example 7-5](#example-7-5-a-stateful-processor-for-creating-digital-twin-records) shows the implementation of this processor.
-5. Use the ``Stores factory`` class to create a store builder, which can be used by Kafka Streams to build persistent key-value stores that are accessible from the Digital Twin Processor node.
+1. Create a ``source processor`` named **Desired State Events** that consumes data from the ``desired-state-events`` topic. This is the equivalent of a ``stream`` in the DSL.
+2. Create a ``source processor`` named **Reported State Events** that consumes data from the ``reported-state-events`` topic. This is also the equivalent of a ``stream`` in the DSL.
+3. Add a ``stream processor`` named **High Winds Flatmap Processor**  that generates a shutdown signal if high winds are detected. This processor receives events from the **Reported State Events** processor. This would be a flatMap operation in the DSL since there is a 1:N relationship between the number of input and output records for this stream processor. [Example 7-3](#example-7-3-a-processor-implementation-that-detects-dangerous-wind-speeds) shows the implementation of this processor.
+4. Add a ``stream processor`` named **Digital Twin Processor** that creates digital twin records using data emitted from both the **High Winds Flatmap Processor and Desired State Events**. This would be a merge operation in the DSL since multiple sources are involved. Furthermore, since this is a stateful processor, this would be the equivalent of an aggregated **table** in the DSL. [Example 7-5](#example-7-5-a-stateful-processor-for-creating-digital-twin-records) shows the implementation of this processor.
+5. Use the ``Stores factory`` class to create a **store builder**, which can be used by Kafka Streams to build persistent key-value stores that are accessible from the Digital Twin Processor node.
 6. Add the state store to the topology and connect it to the ``Digital Twin Processor`` node.
-7. Create a ``sink processor`` named ``Digital Twin Sink`` that writes all digital twin records that get emitted from the Digital Twin Processor node to an output topic named digital-twins.
+7. Create a ``sink processor`` named ``Digital Twin Sink`` that writes all digital twin records that get emitted from the Digital Twin Processor node to an output topic named **digital-twins**.
 
 We can now run our application, write some test data to our Kafka cluster, and query our digital twin service. Running our application is no different than what we’ve seen in previous chapters, as you can see from the following code block:
 ```java
@@ -676,8 +676,8 @@ RestService service = new RestService(hostInfo, streams); 5
 service.start();
 ```
 1. Configure the Kafka Streams application. This works the same way as we saw when building applications with the DSL. Most of the configs are omitted for brevity’s sake.
-2. Instantiate a new KafkaStreams instance that can be used to execute our topology.
-3. Start the Kafka Streams application.
+2. Instantiate a new **KafkaStreams** instance that can be used to execute our topology.
+3. Start the **Kafka** Streams application.
 4. Add a shutdown hook to gracefully stop the Kafka Streams application when a global shutdown signal is received.
 5. Instantiate and (on the following line) start the REST service, which we implemented in [Example 7-6](#example-7-6-an-example-rest-service-to-expose-digital-twin-records).
 
@@ -689,9 +689,9 @@ Our application now reads from multiple source topics, but we will only produce 
 1|{"timestamp": "...", "wind_speed_mph": 44, "power": "ON", "type": "REPORTED"}
 1|{"timestamp": "...", "wind_speed_mph": 68, "power": "ON", "type": "REPORTED"} 1
 ```
-1. This sensor data shows a wind speed of 68 mph. When our application sees this record, it should generate a shutdown signal by creating a new TurbineState record, with a desired power state of OFF.
+1. This sensor data shows a wind speed of 68 mph. When our application sees this record, it should generate a shutdown signal by creating a new **TurbineState** record, with a desired power state of OFF.
 
-If we produce this test data into the reported-state-events topic and then query our digital twin service, we will see that our Kafka Streams application not only processed the reported states of our windmill, but also produced a desired state record where the power is set to OFF. The following code block shows an example request and response to our REST service:
+If we produce this test data into the **reported-state-events** topic and then query our digital twin service, we will see that our Kafka Streams application not only processed the reported states of our windmill, but also produced a desired state record where the power is set to **OFF**. The following code block shows an example request and response to our REST service:
 ```shell
 $ curl localhost:7000/devices/1 | jq '.'
 
@@ -709,11 +709,11 @@ $ curl localhost:7000/devices/1 | jq '.'
     "type": "REPORTED"
   }
 ```
-Now, our wind turbines can query our REST service and synchronize their own state with the desired state that was either captured (via the desired-state-events topic) or enforced (using the high winds processor to send a shutdown signal) by Kafka Streams.
+Now, our wind turbines can query our REST service and synchronize their own state with the desired state that was either captured (via the **desired-state-events** topic) or enforced (using the high winds processor to send a shutdown signal) by Kafka Streams.
 ## Combining the Processor API with the DSL
-We’ve verified that our application works. However, if you look closely at our code, you’ll see that only one of the topology steps requires the low-level access that the Processor API offers. The step I’m referring to is the Digital Twin Processor step (see step 3 in [Figure 7-1](#figure-7-1-the-topology-that-we-will-be-implementing-for-our-iot-digital-twin-service)), which leverages an important feature of the Processor API: the ability to schedule periodic functions.
+We’ve verified that our application works. However, if you look closely at our code, you’ll see that only one of the topology steps requires the low-level access that the Processor API offers. The step I’m referring to is the **Digital Twin Processor** step (see step 3 in [Figure 7-1](#figure-7-1-the-topology-that-we-will-be-implementing-for-our-iot-digital-twin-service)), which leverages an important feature of the Processor API: the ability to schedule periodic functions.
 
-Since Kafka Streams allows us to combine the Processor API and the DSL, we can easily refactor our application to only use the Processor API for the Digital Twin Processor step, and to use the DSL for everything else. The biggest benefit of performing this kind of refactoring is that other stream processing steps can be simplified. In this tutorial, the High Winds Flatmap Processor offers the biggest opportunity of simplification, but in larger applications, this kind of refactoring reduces complexity on an even greater scale.
+Since Kafka Streams allows us to combine the Processor API and the DSL, we can easily refactor our application to only use the Processor API for the **Digital Twin Processor** step, and to use the DSL for everything else. The biggest benefit of performing this kind of refactoring is that other stream processing steps can be simplified. In this tutorial, the High Winds Flatmap Processor offers the biggest opportunity of simplification, but in larger applications, this kind of refactoring reduces complexity on an even greater scale.
 
 The first two steps in our processor topology (registering the source processors and generating a shutdown signal using a flatMap-like operation) can be refactored using operators we’ve already discussed in this book. Specifically, we can make the following changes:
 <table>
