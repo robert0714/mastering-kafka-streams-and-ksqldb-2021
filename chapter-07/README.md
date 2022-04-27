@@ -722,7 +722,7 @@ The first two steps in our processor topology (registering the source processors
         <td>DSL</td>
     </tr>
     <tr>
-        <td><pre>Topology builder = new Topology();
+        <td valign="top"><pre>Topology builder = new Topology();
 builder.addSource(
   "Desired State Events",
   Serdes.String().deserializer(),
@@ -738,7 +738,7 @@ builder.addProcessor(
   HighWindsFlatmapProcessor::new,
   "Reported State Events");
   </pre></td>
-        <td><pre>StreamsBuilder builder = new StreamsBuilder();
+        <td valign="top"><pre>StreamsBuilder builder = new StreamsBuilder();
 KStream String, TurbineState ; desiredStateEvents =
   builder.stream("desired-state-events",
     Consumed.with(
@@ -888,7 +888,7 @@ Now that we’ve discussed the individual steps in our DSL refactor, let’s tak
         <td>DSL + Processor API</td>
     </tr>
     <tr>
-        <td><pre>Topology builder = new Topology();
+        <td valign="top" ><pre>Topology builder = new Topology();
 builder.addSource(
   "Desired State Events",
   Serdes.String().deserializer(),
@@ -924,7 +924,7 @@ builder.addSink(
   JsonSerdes.DigitalTwin().serializer(),
   "Digital Twin Processor");
       </pre></td>
-        <td><pre>StreamsBuilder builder = new StreamsBuilder();
+        <td valign="top" ><pre>StreamsBuilder builder = new StreamsBuilder();
 KStream&lt;String, TurbineState&gt; desiredStateEvents =
   builder.stream("desired-state-events",
     Consumed.with(
