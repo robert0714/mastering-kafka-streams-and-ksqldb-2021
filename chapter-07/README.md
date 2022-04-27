@@ -1,17 +1,17 @@
 # Chapter 7. Processor API
 We will explore a **lower-level API** that is available in Kafka Streams: the Processor API (sometimes called **PAPI**). The Processor API has fewer abstractions than the high-level DSL and uses an imperative style of programming. While the code is generally more verbose, it is also more powerful, giving us fine-grained control over the following: how data flows through our topologies, how stream processors relate to each other, how state is created and maintained, and even the timing of certain operations.
 
-* Some of the questions we will answer in this chapter include:
+Some of the questions we will answer in this chapter include:
 * When should you use the Processor API?
 * How do you add source, sink, and stream processors using the Processor API?
 * How can you schedule periodic functions?
 * Is it possible to mix the Processor API with the higher-level DSL?
 * What is the difference between processors and transformers?
 
-As usual, we will demonstrate the fundamentals of the API through a tutorial, answering the preceding questions along the way. However, before we show you how to use the Processor API, let’s first discuss when to use it.
+As usual, we will demonstrate the fundamentals of the API through a tutorial, answering the preceding questions along the way. However, before we show you how to use the Processor API, let’s first discuss **when** to use it.
 
 ## When to Use the Processor API
-Deciding which abstraction level to use for your stream processing application is important. In general, whenever you introduce complexity into a project, you should have a good reason for doing so. While the Processor API isn’t unnecessarily complex, its low-level nature (compared to the DSL and ksqlDB) and fewer abstractions can lead to more code and, if you’re not careful, more mistakes.
+**Deciding which abstraction level to use for your stream processing application is important**. In general, whenever you introduce complexity into a project, you should have a good reason for doing so. While the Processor API isn’t unnecessarily complex, its low-level nature (compared to the **DSL** and **ksqlDB**) and fewer abstractions can lead to more code and, if you’re not careful, more mistakes.
 
 In general, you may want to utilize the Processor API if you need to take advantage of any of the following:
 
@@ -23,16 +23,16 @@ In general, you may want to utilize the Processor API if you need to take advant
 
 On the other hand, using the Processor API can come with some disadvantages, including:
 
-* More verbose code, which can lead to higher maintenance costs and impair readability
-* A higher barrier to entry for other project maintainers
+* More verbose code, which can lead to ``higher maintenance costs and impair readability``
+* A ``higher barrier`` to entry for other project maintainers
 * More footguns, including accidental reinvention of DSL features or abstractions, exotic problem-framing,[^1] and performance traps[^2]
 
-Fortunately, Kafka Streams allows us to mix both the DSL and Processor API in an application, so you don’t need to go all in on either choice. You can use the DSL for simpler and more standard operations, and the Processor API for more complex or unique functions that require lower-level access to the processing context, state, or record metadata. We will discuss how to combine the DSL and Processor API at the end of this chapter, but initially, we will see how to implement an application using only the Processor API. So without further ado, let’s take a look at the application we’ll be building in this chapter.
+Fortunately, Kafka Streams allows us to ``mix both the DSL and Processor API`` in an application, so you don’t need to go all in on either choice. You can use the DSL for simpler and more standard operations, and the Processor API for more complex or unique functions that require lower-level access to the processing context, state, or record metadata. We will discuss how to combine the DSL and Processor API at the end of this chapter, but initially, we will see how to implement an application using ``only`` the Processor API. So without further ado, let’s take a look at the application we’ll be building in this chapter.
 
 ### Introducing Our Tutorial: IoT Digital Twin Service
 In this tutorial, we will use the Processor API to build a **digital twin** service for an offshore wind farm. Digital twins (sometimes called device shadows) are popular in both IoT (Internet of Things) and IIoT (industrial IoT) use cases,[^3] in which the state of a physical object is mirrored in a digital copy. This is a great use case for Kafka Streams, which can easily ingest and process high-volume sensor data, capture the state of a physical object using state stores, and subsequently expose this state using interactive queries.
 
-To give you a quick example of what a digital twin is (this will make our tutorial a little clearer), consider the following. We have a wind farm with 40 wind turbines. Whenever one of the turbines reports its current state (wind speed, temperature, power status, etc.), we save that information in a key-value store. An example of a reported state record value is shown here:
+To give you a quick example of what a digital twin is (this will make our tutorial a little clearer), consider the following. We have a wind farm with 40 wind turbines. Whenever one of the turbines reports its current state (wind speed, temperature, power status, etc.), we save that information in a key-value store. An example of a ``reported state`` record value is shown here:
 ```json
 {
   "timestamp": "2020-11-23T09:02:00.000Z",
@@ -45,7 +45,7 @@ Note that a device ID is communicated via the record key (e.g., the preceding va
 
 Now, if we want to interact with a particular wind turbine,[^4] we don’t do so directly. IoT devices can and do frequently go offline, so we can achieve higher availability and reduce errors if we instead only interact with the digital copy (twin) of a physical device.
 
-For example, if we want to set the power state from ON to OFF, instead of sending that signal to the turbine directly, we would set the so-called desired state on the digital copy. The physical turbine would subsequently synchronize its state (i.e., disable power to the blades) whenever it comes online, and usually at set intervals, thereafter. Therefore, a digital twin record will include both a reported and desired state, and we will create and expose digital twin records like the following using Kafka Streams’ Processor API:
+For example, if we want to set the power state from **ON** to **OFF** , instead of sending that signal to the turbine directly, we would set the so-called ``desired state`` on the digital copy. The physical turbine would subsequently synchronize its state (i.e., disable power to the blades) whenever it comes online, and usually at set intervals, thereafter. Therefore, a digital twin record will include both a **reported** and **desired** state, and we will create and expose digital twin records like the following using Kafka Streams’ Processor API:
 ```json
 {
   "desired": {
@@ -73,12 +73,12 @@ Though we will avoid much of the technical detail around interactive queries sin
 1. Our Kafka cluster contains two topics, and therefore we need to learn how to add source processors using the Processor API. Here is a description of these topics:
   * Each wind turbine (edge node) is outfitted with a set of environmental sensors, and this data (e.g., wind speed), along with some metadata about the turbine itself (e.g., power state), is sent to the ``reported-state-events`` topic periodically.
   * The ``desired-state-events`` topic is written to whenever a user or process wants to change the power state of a turbine (i.e., turn it off or on).
-2. Since the environmental sensor data is reported in the reported-state-events topic, we will add a stream processor that determines whether or not the reported wind speed for a given turbine exceeds safe operating levels,[^6] and if it does, we will automatically generate a shutdown signal. This will teach you how to add a stateless stream processor using the Processor API.
+2. Since the environmental sensor data is reported in the ``reported-state-events`` topic, we will add a stream processor that determines whether or not the reported wind speed for a given turbine exceeds safe operating levels,[^6] and if it does, we will automatically generate a shutdown signal. This will teach you how to add a stateless stream processor using the Processor API.
 3. The third step is broken into two parts:
-  * First, both types of events (reported and desired) will be combined into a so-called digital twin record. These records will be processed and then written to a persistent key-value store called digital-twin-store. In this step, you will learn how to connect to and interact with state stores using the Processor API, and also how to access certain record metadata that isn’t accessible via the DSL.
-  * The second part of this step involves scheduling a periodic function, called a ``punctuator``, to clean out old digital twin records that haven’t seen an update in more than seven days. This will introduce you to the Processor API’s punctuation interface, and also demonstrate an alternative method for removing keys from state stores.7
-4. Each digital twin record will be written to an output topic called digital-twins for analytical purposes. In this step, you will learn how to add sink processors using the Processor API.
-5. We will expose the digital twin records via Kafka Streams’ interactive queries feature. Every few seconds, the microcontroller on the wind turbine will attempt to synchronize its own state with the desired state exposed by Kafka Streams. For example, if we generate a shutdown signal in step 2 (which would set the desired power state to OFF), then the turbine would see this desired state when it queries our Kafka Streams app, and kill power to the blades.
+  * First, both types of events (reported and desired) will be combined into a so-called **digital twin record**. These records will be processed and then written to a persistent key-value store called **digital-twin-store**. In this step, you will learn how to connect to and interact with state stores using the Processor API, and also how to access certain record metadata that isn’t accessible via the **DSL**.
+  * The second part of this step involves scheduling a periodic function, called a ``punctuator``, to clean out old digital twin records that haven’t seen an update in more than seven days. This will introduce you to the Processor API’s punctuation interface, and also demonstrate an alternative method for removing keys from state stores.[^7]
+4. Each digital twin record will be written to an output topic called **digital-twins** for analytical purposes. In this step, you will learn how to add sink processors using the Processor API.
+5. We will expose the digital twin records via Kafka Streams’ interactive queries feature. Every few seconds, the microcontroller on the wind turbine will attempt to synchronize its own state with the desired state exposed by Kafka Streams. For example, if we generate a shutdown signal in step 2 (which would set the desired power state to **OFF**), then the turbine would see this desired state when it queries our Kafka Streams app, and kill power to the blades.
 
 Now that we understand what we’ll be building (and what we’ll learn at each step), let’s set up our project.
 
@@ -237,13 +237,13 @@ builder.addSource(7
     JsonSerdes.TurbineState().deserializer(),
     "reported-state-events");
 ```
-1. Instantiate a Topology instance directly. This is what we will use to add and connect source, sink, and stream processors. Note: instantiating a Topology directly is different than how we work with the DSL, which requires us to instantiate a StreamsBuilder object, add our DSL operators (e.g., map, flatMap, merge, branch, etc.) to the StreamsBuilder instance, and ultimately build a Topology instance using the StreamsBuilder#build method.
-2. Use the addSource method to create a source processor. There are many overloaded versions of this method, including variations that support offset reset strategies, topic patterns, and more. So check out the Kafka Streams Javadocs or navigate to the Topology class using your IDE and choose the addSource variation that best fits your needs.
+1. Instantiate a **Topology** instance directly. This is what we will use to add and connect source, sink, and stream processors. Note: instantiating a **Topology** directly is different than how we work with the **DSL**, which requires us to instantiate a StreamsBuilder object, add our DSL operators (e.g., **map**, **flatMap**, **merge**, **branch**, etc.) to the **StreamsBuilder** instance, and ultimately build a **Topology** instance using the ``StreamsBuilder#build`` method.
+2. Use the **addSource** method to create a source processor. There are many overloaded versions of this method, including variations that support offset reset strategies, topic patterns, and more. So check out the Kafka Streams Javadocs or navigate to the Topology class using your IDE and choose the **addSource** variation that best fits your needs.
 3. The name of the source processor. Each processor must have a unique name, since under the hood, Kafka Streams stores these names in a topologically sorted map (and therefore, each key must be unique). As we’ll see shortly, names are important in the Processor API since they are used to connect child processors. Again, this is very different from how the DSL makes connections, which doesn’t need an explicit name to define the relationship between processors (by default, the DSL generates an internal name for you). It’s advisable to use a descriptive name here to improve the readability of your code.
-4. The key deserializer. Here, we use the built-in String deserializer since our keys are formatted as strings. This is another difference between the Processor API and the DSL. The latter requires us to pass in a Serdes (an object that contains both a record serializer and deserializer), while the Processor API only requires the underlying deserializer (which can be extracted directly from the Serdes, as we have done here).
-5. The value deserializer. Here, we use a custom Serdes (found in the source code of this tutorial) to convert the record values into a TurbineState object. The additional notes about the key deserializer also apply here.
+4. The key deserializer. Here, we use the built-in **String** deserializer since our keys are formatted as strings. This is another difference between the Processor API and the DSL. The latter requires us to pass in a **Serdes** (an object that contains both a record serializer and deserializer), while the Processor API only requires the underlying deserializer (which can be extracted directly from the Serdes, as we have done here).
+5. The value deserializer. Here, we use a custom Serdes (found in the source code of this tutorial) to convert the record values into a **TurbineState** object. The additional notes about the key deserializer also apply here.
 6. The name of the topic this source processor consumes from.
-7. Add a second source processor for the reported-state-events topic. We won’t go through each parameter again since the parameter types match the previous source processor.
+7. Add a second source processor for the **reported-state-events** topic. We won’t go through each parameter again since the parameter types match the previous source processor.
 
 One thing to note about the preceding example is that you will see no mention of a stream or table. These abstractions do not exist in the Processor API. However, conceptually speaking, both source processors we have added in the preceding code represent a stream. This is because the processors are not stateful (i.e., they are not connected to a state store) and therefore have no way of remembering the latest state/representation of a given key.
 
@@ -258,13 +258,13 @@ builder.addProcessor(
     "Reported State Events"); 3
 ```
 1. The name of this stream processor.
-2. The second argument expects us to provide a **ProcessSupplier**, which is a functional interface that returns a Processor instance. **Processor** instances contain all of the data processing/transformation logic for a given stream processor. In the next section, we will define a class called HighWindsFlatmapProcessor, which will implement the Processor interface. Therefore, we can simply use a method reference for that class’s constructor.
-3. Names of the parent processors. In this case, we only have one parent processor, which is the Reported State Events processor that we created in [Example 7-2](#example-7-2-the-initial-topology-with-both-of-our-source-processors-added). Stream processors can be connected to one or more parent nodes.
+2. The second argument expects us to provide a **ProcessSupplier**, which is a functional interface that returns a Processor instance. **Processor** instances contain all of the data processing/transformation logic for a given stream processor. In the next section, we will define a class called **HighWindsFlatmapProcessor**, which will implement the Processor interface. Therefore, we can simply use a method reference for that class’s constructor.
+3. Names of the parent processors. In this case, we only have one parent processor, which is the **Reported State Events** processor that we created in [Example 7-2](#example-7-2-the-initial-topology-with-both-of-our-source-processors-added). Stream processors can be connected to one or more parent nodes.
 
-Whenever you add a stream processor, you need to implement the Processor interface. This isn’t a functional interface (unlike ProcessSupplier, which we just discussed), so you can’t just pass in a lambda expression to the addProcessor method, like we often do with DSL operators. It’s a little more involved and requires more code than we may be accustomed to, but we’ll walk through how to do this in the next section.
+Whenever you add a stream processor, you need to implement the **Processor** interface. This isn’t a functional interface (unlike **ProcessSupplier**, which we just discussed), so you can’t just pass in a lambda expression to the addProcessor method, like we often do with DSL operators. It’s a little more involved and requires more code than we may be accustomed to, but we’ll walk through how to do this in the next section.
 
 ## Creating Stateless Processors
-Whenever we use the addProcessor method in the Processor API, we need to implement the Processor interface, which will contain the logic for processing and transforming records in a stream. The interface has three methods, as shown here:
+Whenever we use the **addProcessor** method in the Processor API, we need to implement the **Processor** interface, which will contain the logic for processing and transforming records in a stream. The interface has three methods, as shown here:
 ```java
 public interface Processor<K, V> { (1)
 
@@ -275,12 +275,12 @@ public interface Processor<K, V> { (1)
     void close(); (4)
 }
 ```
-1. Notice that the Processor interface specifies two generics: one for the key type (K) and one for the value type (V). We will see how to leverage these generics when we implement our own processor later in this section.
-2. The init method is called when the Processor is first instantiated. If your processor needs to perform any initialization tasks, you can specify the initialization logic in this method. The ProcessorContext that is passed to the init method is extremely useful, and contains many methods that we will explore in this chapter.
-3. The process method is called whenever this processor receives a new record. It contains the per-record data transformation/processing logic. In our example, this is where we will add the logic for detecting whether or not wind speeds exceed safe operating levels for our turbine.
-4. The close method is invoked by Kafka Streams whenever it is finished with this operator (e.g., during shutdown). This method typically encapsulates any clean up logic you need for your processor and its local resources. However, you should not attempt to cleanup any Kafka Streams–managed resources, like state stores, in this method, since that is handled by the library itself.
+1. Notice that the **Processor** interface specifies two generics: one for the key type (**K**) and one for the value type (**V**). We will see how to leverage these generics when we implement our own processor later in this section.
+2. The init method is called when the **Processor** is first instantiated. If your processor needs to perform any initialization tasks, you can specify the initialization logic in this method. The **ProcessorContext** that is passed to the **init** method is extremely useful, and contains many methods that we will explore in this chapter.
+3. The **process** method is called whenever this processor receives a new record. It contains the per-record data transformation/processing logic. In our example, this is where we will add the logic for detecting whether or not wind speeds exceed safe operating levels for our turbine.
+4. The **close** method is invoked by Kafka Streams whenever it is finished with this operator (e.g., during shutdown). This method typically encapsulates any clean up logic you need for your processor and its local resources. However, you should not attempt to cleanup any Kafka Streams–managed resources, like state stores, in this method, since that is handled by the library itself.
 
-With this interface in mind, let’s implement a Processor that will generate a shutdown signal when wind speeds reach dangerous levels. The code in [Example 7-3](#example-7-3-a-processor-implementation-that-detects-dangerous-wind-speeds) shows what our high winds processor looks like.
+With this interface in mind, let’s implement a **Processor** that will generate a shutdown signal when wind speeds reach dangerous levels. The code in [Example 7-3](#example-7-3-a-processor-implementation-that-detects-dangerous-wind-speeds) shows what our high winds processor looks like.
 
 ###### Example 7-3. A Processor implementation that detects dangerous wind speeds
 ```java
@@ -315,21 +315,21 @@ public class HighWindsFlatmapProcessor
   }
 }
 ```
-1. Recall that the Processor interface is parameterized with four generics. The first two generics (in this case, Processor<String, TurbineState, ..., ...>) refer to the input key and value types. The last two generics (in this case, Processor<..., ..., String, TurbineState>) refer to the output key and value types.
+1. Recall that the Processor interface is parameterized with four generics. The first two generics (in this case, ``Processor<String, TurbineState, ..., ...>``) refer to the **input** key and value types. The last two generics (in this case, ``Processor<..., ..., String, TurbineState>``) refer to the **output** key and value types.
 2. The generics in the ProcessorContext interface refer to the output key and value types (in this case, ProcessorContext<String, TurbineState>).
-3. It is typical to save the processor context as an instance property, as we do here, so that we can access it later (e.g., from the process and/or close methods).
-4. Whenever you want to send a record to downstream processors, you can call the forward method on the ProcessorContext instance (we have saved this in the context property). This method accepts the record that you would like to forward. In our processor implementation, we always want to forward the reported state records, which is why we call context.forward using an unmodified record in this line.
+3. It is typical to save the processor context as an instance property, as we do here, so that we can access it later (e.g., from the **process** and/or **close** methods).
+4. Whenever you want to send a record to downstream processors, you can call the **forward** method on the **ProcessorContext** instance (we have saved this in the **context** property). This method accepts the record that you would like to forward. In our processor implementation, we always want to forward the reported state records, which is why we call **context.forward** using an unmodified record in this line.
 5. Check to see if our turbine meets the conditions for sending a shutdown signal. In this case, we check that wind speeds exceed a safe threshold (65 mph), and that our turbine is currently powered on.
-6. If the previous conditions are met, generate a new record containing a desired power state of OFF. Since we have already sent the original reported state record downstream, and we are now generating a desired state record, this is effectively a type of flatMap operation (our processor has created two output records from one input record).
+6. If the previous conditions are met, generate a new record containing a desired power state of **OFF**. Since we have already sent the original reported state record downstream, and we are now generating a desired state record, this is effectively a type of **flatMap** operation (our processor has created two output records from one input record).
 7. Create an output record that includes the desired state that we saved to the state store. The record key and timestamp are inherited from the input record.
-8. Call the context.forward method in order to send the new record (the shutdown signal) to downstream processors.
+8. Call the **context.forward** method in order to send the new record (the shutdown signal) to downstream processors.
 9. In this processor, there’s no special logic that we need to execute when our processor is closed.
 
-As you can see, implementing a Processor is pretty straightforward. One interesting thing to call out is that when you build processors like this, you usually don’t need to concern yourself with where the output records will be forwarded to from the Processor implementation itself (you can define the dataflow by setting the parent name of a downstream processor). The exception to this is if you use a variation of ProcessorContext#forward that accepts a list of downstream processor names, which tells Kafka Streams which child processors to forward the output to. An example of this is shown here:
+As you can see, implementing a **Processor** is pretty straightforward. One interesting thing to call out is that when you build processors like this, you usually don’t need to concern yourself with ***where*** the output records will be forwarded to from the **Processor** implementation itself (you can define the dataflow by setting the parent name of a downstream processor). The exception to this is if you use a variation of **ProcessorContext#forward** that accepts a list of downstream processor names, which tells Kafka Streams which ***child processors*** to forward the output to. An example of this is shown here:
 ```java
 context.forward(newRecord, "some-child-node");
 ```
-Whether or not you use this variation of the forward method depends on if you want to broadcast the output to all of the downstream processors or to a specific downstream processor. For example, the DSL’s branch method uses the above variation since it only needs to broadcast its output to a subset of the available downstream processors.
+Whether or not you use this variation of the **forward** method depends on if you want to broadcast the output to all of the downstream processors or to a specific downstream processor. For example, the DSL’s branch method uses the above variation since it only needs to broadcast its output to a subset of the available downstream processors.
 
 This completes step 2 of our processor topology (see [Figure 7-1](#figure-7-1-the-topology-that-we-will-be-implementing-for-our-iot-digital-twin-service)). Next, we need to implement a stateful stream processor that creates and saves digital twin records in a key-value store.
 
@@ -342,7 +342,7 @@ So far in this book, we have mostly focused on using state stores in the DSL. Fu
 grouped.aggregate(initializer, adder);
 ```
 
-Or we can use the Stores factory class to create a **store supplier**, and materialize the state store using the **Materialized** class in conjunction with a stateful operator, as shown in the following code:
+Or we can use the **Stores** factory class to create a **store supplier**, and materialize the state store using the **Materialized** class in conjunction with a stateful operator, as shown in the following code:
 ```java
 KeyValueBytesStoreSupplier storeSupplier =
     Stores.persistentTimestampedKeyValueStore("my-store");
@@ -352,9 +352,9 @@ grouped.aggregate(
     adder,
     Materialized.<String, String>as(storeSupplier));
 ```
-Using state stores in the Processor API is a little different. Unlike the DSL, the Processor API won’t create an internal state store for you. Therefore, you must always create and connect state stores to the appropriate stream processors yourself when you need to perform stateful operations. Furthermore, while we can still use the Stores factory class, we will use a different set of methods that are available in this class for creating state stores. Instead of using one of the methods that returns a **store supplier**, we will use the methods for creating **store builders**.
+Using state stores in the Processor API is a little different. Unlike the DSL, ``the Processor API won’t create an internal state store for you``. Therefore, you must always create ***and*** connect state stores to the appropriate stream processors yourself when you need to perform stateful operations. Furthermore, while we can still use the **Stores** factory class, we will use a different set of methods that are available in this class for creating state stores. Instead of using one of the methods that returns a **store supplier**, we will use the methods for creating **store builders**.
 
-For example, to store the digital twin records, we need a simple key-value store. The factory method for retrieving a key-value store builder is called **keyValueStoreBuilder**, and the following code demonstrates how we can use this method for creating our digital twin store:
+For example, to store the digital twin records, we need a simple key-value store. The factory method for retrieving a key-value store **builder** is called **keyValueStoreBuilder**, and the following code demonstrates how we can use this method for creating our digital twin store:
 ```java
 StoreBuilder<KeyValueStore<String, DigitalTwin>> storeBuilder =
     Stores.keyValueStoreBuilder(
@@ -366,7 +366,7 @@ StoreBuilder<KeyValueStore<String, DigitalTwin>> storeBuilder =
 1. We’ll use the built-in String Serdes for serializing/deserializing keys.
 2. Use the Serdes we defined in [Example 7-1](#example-7-1-serdes-for-our-digital-twin-and-turbine-state-records) for serializing/deserializing values.
 
-Once you’ve created a store builder for your stateful processor, it’s time to implement the Processor interface. This process is very similar to what we saw when we added a stateless processor in “[Creating Stateless Processors](#creating-stateless-processors)”. We simply need to use the addProcessor method in the Processor API, as shown in the following code:
+Once you’ve created a store builder for your stateful processor, it’s time to implement the **Processor** interface. This process is very similar to what we saw when we added a stateless processor in “[Creating Stateless Processors](#creating-stateless-processors)”. We simply need to use the **addProcessor** method in the Processor API, as shown in the following code:
 ```java
 builder.addProcessor(
   "Digital Twin Processor", 1
@@ -374,10 +374,10 @@ builder.addProcessor(
   "High Winds Flatmap Processor", "Desired State Events"); 3
 ```
 1. The name of this stream processor.
-2. A ProcessSupplier, which is a method that can be used to retrieve a Processor instance. We will implement the DigitalTwinProcessor referenced in this line shortly.
+2. A **ProcessSupplier**, which is a method that can be used to retrieve a **Processor** instance. We will implement the **DigitalTwinProcessor** referenced in this line shortly.
 3. Names of the parent processors. By specifying multiple parents, we are effectively performing what would be a merge operation in the DSL.
 
-Before we implement the DigitalTwinProcessor, let’s go ahead and add our new state store to the topology. We can do this using the Topology#addStateStore method, and a demonstration of its usage is shown in [Example 7-4](#example-7-4-example-usage-of-the-addstatestore-method).
+Before we implement the **DigitalTwinProcessor**, let’s go ahead and add our new state store to the topology. We can do this using the **Topology#addStateStore** method, and a demonstration of its usage is shown in [Example 7-4](#example-7-4-example-usage-of-the-addstatestore-method).
 
 ###### Example 7-4. Example usage of the addStateStore method
 ```java
@@ -387,43 +387,43 @@ builder.addStateStore(
 );
 ```
 1. A store builder that can be used to obtain the state store.
-2. We can optionally pass in the name of the processors that should have access to this store. In this case, the DigitalTwinProcessor that we created in the previous code block should have access. We could also have passed in more processor names here if we had multiple processors with shared state. Finally, if we omit this optional argument, we could instead use the Topology#connectProcessorAndState to connect a state store to a processor after the store was added to the topology (instead of at the same time, which is what we’re doing here).
+2. We can ***optionally*** pass in the name of the processors that should have access to this store. In this case, the **DigitalTwinProcessor** that we created in the previous code block should have access. We could also have passed in more processor names here if we had multiple processors with shared state. Finally, if we omit this optional argument, we could instead use the **Topology#connectProcessorAndState** to connect a state store to a processor ***after*** the store was added to the topology (instead of at the same time, which is what we’re doing here).
 
-The last step is to implement our new stateful processor: DigitalTwinProcessor. Like stateless stream processors, we will need to implement the Processor interface. However, this time, our implementation will be slightly more involved since this processor needs to interact with a state store. The code in [Example 7-5](#example-7-5-a-stateful-processor-for-creating-digital-twin-records), and the annotations that follow it, will describe how to implement a stateful processor.
+The last step is to implement our new stateful processor: [**DigitalTwinProcessor**](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L19-L96). Like stateless stream processors, we will need to implement the Processor interface. However, this time, our implementation will be slightly more involved since this processor needs to interact with a state store. The code in [Example 7-5](#example-7-5-a-stateful-processor-for-creating-digital-twin-records), and the annotations that follow it, will describe how to implement a stateful processor.
 
 ###### Example 7-5. A stateful processor for creating digital twin records
 ```java
 public class DigitalTwinProcessor
-    implements Processor<String, TurbineState, String, DigitalTwin> { 1
+    implements Processor<String, TurbineState, String, DigitalTwin> { (1)
   private ProcessorContext<String, DigitalTwin> context;
   private KeyValueStore<String, DigitalTwin> kvStore;
 
   @Override
-  public void init(ProcessorContext<String, DigitalTwin> context) { 2
-    this.context = context; 3
+  public void init(ProcessorContext<String, DigitalTwin> context) { (2)
+    this.context = context; (3)
     this.kvStore = (KeyValueStore) context.getStateStore("digital-twin-store"); 4
   }
 
   @Override
   public void process(Record<String, TurbineState> record) {
-    String key = record.key(); 5
+    String key = record.key(); (5)
     TurbineState value = record.value();
-    DigitalTwin digitalTwin = kvStore.get(key); 6
-    if (digitalTwin == null) { 7
+    DigitalTwin digitalTwin = kvStore.get(key); (6)
+    if (digitalTwin == null) { (7)
       digitalTwin = new DigitalTwin();
     }
 
-    if (value.getType() == Type.DESIRED) { 8
+    if (value.getType() == Type.DESIRED) { (8)
       digitalTwin.setDesired(value);
     } else if (value.getType() == Type.REPORTED) {
       digitalTwin.setReported(value);
     }
 
-    kvStore.put(key, digitalTwin); 9
+    kvStore.put(key, digitalTwin); (9)
 
     Record<String, DigitalTwin> newRecord =
-      new Record<>(record.key(), digitalTwin, record.timestamp()); 10
-    context.forward(newRecord); 11
+      new Record<>(record.key(), digitalTwin, record.timestamp()); (10)
+    context.forward(newRecord); (11)
   }
 
   @Override
@@ -432,17 +432,17 @@ public class DigitalTwinProcessor
   }
 }
 ```
-1. The first two generics in the Processor interface (in this case, Processor<String, TurbineState, ..., ...>) refer to the input key and value types, and the last two generics (Processor<..., ..., String, DigitalTwin>) refer to the output key and value types.
-2. The generics in the ProcessorContext interface (ProcessorContext<String, DigitalTwin>) refer to the output key and value types
-3. We’ll save the ProcessorContext (referenced by the context property) so that we can access it later on.
-4. The getStateStore method on the ProcessorContext allows us to retrieve the state store we previously attached to our stream processor. We will interact with this state store directly whenever a record is processed, so we will save it to an instance property named kvStore.
-5. This line and the one that follows it show how to extract the key and value of the input record
-6. Use our key-value store to perform a point lookup for the current record’s key. If we have seen this key before, then this will return the previously saved digital twin record.
-7. If the point lookup didn’t return any results, then we will create a new digital twin record.
-8. In this code block, we set the appropriate value in the digital twin record depending on the current record’s type (reported state or desired state).
-9. Store the digital twin record in the state store directly, using the key-value store’s put method.
-10. Create an output record that includes the digital twin instance that we saved to the state store. The record key and timestamp are inherited from the input record.
-11. Forward the output record to downstream processors.
+1. The first two generics in the **Processor** interface (in this case, [**Processor<String, TurbineState, ..., ...>**](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L19)) refer to the ***input*** key and value types, and the last two generics (**Processor<..., ..., String, DigitalTwin>**) refer to the **output** key and value types.
+2. The generics in the **ProcessorContext** interface ([**ProcessorContext<String, DigitalTwin>**](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L28)) refer to the output key and value types
+3. We’ll save the **ProcessorContext** (referenced by the [**context**](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L30) property) so that we can access it later on.
+4. The **getStateStore** method on the **ProcessorContext** allows us to retrieve the state store we previously attached to our stream processor. We will interact with this state store directly whenever a record is processed, so we will save it to an instance property named [**kvStore**(./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L40)].
+5. [This line](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L64) and the one that follows it show how to extract the key and value of the input record
+6. Use our [key-value](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L73) store to perform a point lookup for the current record’s key. If we have seen this key before, then this will return the previously saved digital twin record.
+7. [If the point lookup didn’t return any results](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L74), then we will create a new digital twin record.
+8. In [this code block](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L78), we set the appropriate value in the digital twin record depending on the current record’s type (reported state or desired state).
+9. [Store the digital twin record](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L86) in the state store directly, using the key-value store’s put method.
+10. [Create an output record](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L90) that includes the digital twin instance that we saved to the state store. The record key and timestamp are inherited from the input record.
+11. [Forward the output record to downstream processors](./digital-twin/src/main/java/com/magicalpipelines/processors/DigitalTwinProcessor.java#L91).
 
 We’ve now implemented the first part of step 3 in our processor topology. The next step (step 3.2 in [Figure 7-1](#figure-7-1-the-topology-that-we-will-be-implementing-for-our-iot-digital-twin-service)) will introduce you to a very important feature in the Processor API that has no DSL equivalent. Let’s take a look at how to schedule periodic functions in the DSL.
 
