@@ -19,7 +19,7 @@ import org.apache.kafka.streams.test.TestRecord;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class ProcessorAppTest {
+public class CryptoTopologyTest {
   private TopologyTestDriver testDriver;
   private TestInputTopic<byte[], Tweet> inputTopic;
   private TestOutputTopic<byte[], EntitySentiment> outputTopic;
@@ -35,17 +35,19 @@ class ProcessorAppTest {
     props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "dummy:1234");
     testDriver = new TopologyTestDriver(topology, props);
 
-    // create the test input topic
-    inputTopic =
-        testDriver.createInputTopic(
-            "tweets", Serdes.ByteArray().serializer(), new TweetSerdes().serializer());
+    try (TweetSerdes serdes = new TweetSerdes(); ) {
+      // create the test input topic
+      inputTopic =
+          testDriver.createInputTopic(
+              "tweets", Serdes.ByteArray().serializer(), serdes.serializer());
 
-    // create the test output topic
-    outputTopic =
-        testDriver.createOutputTopic(
-            "crypto-sentiment",
-            Serdes.ByteArray().deserializer(),
-            AvroSerdes.get(EntitySentiment.class).deserializer());
+      // create the test output topic
+      outputTopic =
+          testDriver.createOutputTopic(
+              "crypto-sentiment",
+              Serdes.ByteArray().deserializer(),
+              AvroSerdes.get(EntitySentiment.class).deserializer());
+    }
   }
 
   @Test
@@ -67,11 +69,11 @@ class ProcessorAppTest {
     EntitySentiment record1 = outRecords.get(0).getValue();
     EntitySentiment record2 = outRecords.get(1).getValue();
 
-    assertThat(record1.getEntity()).isEqualTo("bitcoin");
+    assertThat(record1.getEntity().toString()).isEqualTo("bitcoin");
     assertThat(record1.getSentimentScore()).isBetween(0.0, 1.0);
     assertThat(record1.getSentimentMagnitude()).isBetween(0.0, 1.0);
 
-    assertThat(record2.getEntity()).isEqualTo("ethereum");
+    assertThat(record2.getEntity().toString()).isEqualTo("ethereum");
     assertThat(record2.getSentimentScore()).isBetween(0.0, 1.0);
     assertThat(record2.getSentimentMagnitude()).isBetween(0.0, 1.0);
   }
