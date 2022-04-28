@@ -26,9 +26,12 @@ repositories {
     // You can declare any Maven/Ivy/file repository here.
     jcenter()
 }
+ext {
+  kafkaVersion = '2.7.2'
+}
 
 dependencies {
-    implementation 'org.apache.kafka:kafka-streams:2.7.2'
+    implementation "org.apache.kafka:kafka-streams:${kafkaVersion}"
 
     // Used for fatjar excuting showing console when using command "java -jar ./build/libs/hello-streams-all.jar"
     implementation 'org.slf4j:slf4j-api:1.7.36'
@@ -39,6 +42,10 @@ dependencies {
 
     // Use JUnit Jupiter Engine for testing.
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.2'
+
+    // test dependencies
+    testImplementation "org.apache.kafka:kafka-streams-test-utils:${kafkaVersion}" 
+    testImplementation 'org.assertj:assertj-core:3.22.0'
 }
 
 application {
