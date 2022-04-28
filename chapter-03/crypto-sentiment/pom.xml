@@ -122,11 +122,6 @@
 	</dependencies>
 	<build>
 		<plugins>
-		<!--
-			<plugin>
-				<artifactId>maven-assembly-plugin</artifactId>
-			</plugin>
-			-->
 			<plugin>
 				<groupId>org.apache.avro</groupId>
 				<artifactId>avro-maven-plugin</artifactId>
@@ -208,4 +203,19 @@
 			<url>https://packages.confluent.io/maven/</url>
 		</repository>
 	</repositories>
+	<!-- mvn package -Passemble -->
+	<profiles>
+		<profile>
+			<id>assemble</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-assembly-plugin</artifactId>
+						<!-- All the configuration you have for the plugin -->
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 </project>

@@ -91,9 +91,9 @@ publishing {
     publications {
         maven(MavenPublication) {          
             pom{
-              name = 'ideogame-leader-board'
+              name = 'videogame-leader-board'
               groupId = 'com.magicalpipelines'
-              artifactId = 'ideogame-leader-board'
+              artifactId = 'videogame-leader-board'
               version = '1.0.0-SNAPSHOT'
               properties = [
                     "java.version": "1.8",

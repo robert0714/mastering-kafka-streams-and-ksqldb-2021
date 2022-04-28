@@ -5,9 +5,9 @@
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>com.magicalpipelines</groupId>
-	<artifactId>ideogame-leader-board</artifactId>
+	<artifactId>videogame-leader-board</artifactId>
 	<version>1.0.0-SNAPSHOT</version>
-	<name>ideogame-leader-board</name>
+	<name>videogame-leader-board</name>
 	<properties>
 		<java.version>1.8</java.version>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -84,8 +84,13 @@
 	<build>
 		<plugins>
 			<plugin>
-				<artifactId>maven-assembly-plugin</artifactId>
-			</plugin>			
+	            <artifactId>maven-surefire-plugin</artifactId>
+	            <version>2.22.2</version>
+	        </plugin>
+	        <plugin>
+	            <artifactId>maven-failsafe-plugin</artifactId>
+	            <version>2.22.2</version>
+	        </plugin>			
 		</plugins>
 		<pluginManagement>
 			<plugins>
@@ -99,10 +104,18 @@
 						<showWarnings>true</showWarnings>
 						<compilerArgs>
 							<arg>-Xlint:deprecation</arg>
-							<arg>-Werror</arg>
+							<!--  <arg>-Werror</arg> -->
 						</compilerArgs>
 					</configuration>
 				</plugin>
+				<plugin>
+		            <artifactId>maven-surefire-plugin</artifactId>
+		            <version>2.22.2</version>
+		        </plugin>
+		        <plugin>
+		            <artifactId>maven-failsafe-plugin</artifactId>
+		            <version>2.22.2</version>
+		        </plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-assembly-plugin</artifactId>
@@ -142,4 +155,19 @@
 			<url>https://packages.confluent.io/maven/</url>
 		</repository>
 	</repositories>
+	<!-- mvn package -Passemble -->
+	<profiles>
+		<profile>
+			<id>assemble</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-assembly-plugin</artifactId>
+						<!-- All the configuration you have for the plugin -->
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
 </project>
