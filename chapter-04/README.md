@@ -606,7 +606,7 @@ dev-players-STATE-STORE-0000000002-changelog     (2)
 OK, we’re ready to move on to the second join.
 
 #### KStream to GlobalKTable Join (products Join)
-As we discussed in the co-partitioning requirements, records on either side of a **GlobalKTable** join do not need to share the same key. Since the local task has a full copy of the table, we can actually perform a join using some attribute of the record value itself on the stream side of the join,14 which is more efficient than having to rekey records through a repartition topic just to ensure related records are handled by the same task.
+As we discussed in the co-partitioning requirements, records on either side of a **GlobalKTable** join do not need to share the same key. Since the local task has a full copy of the table, we can actually perform a join using some attribute of the record value itself on the stream side of the join,[^14] which is more efficient than having to rekey records through a repartition topic just to ensure related records are handled by the same task.
 
 To perform a ***KStream-GlobalKTable*** join, we need to create something called a **KeyValueMapper**, whose purpose is to specify how to map a **KStream** record to a **GlobalKTable** record.For this tutorial, we can simply extract the product ID from the **ScoreWithPlayer** value to map these records to a **Product**, as shown here:
 ```java
@@ -1352,12 +1352,12 @@ In the next chapter, we will discuss another aspect of stateful programming that
 [^9]: As mentioned in [Chapter 3](../chapter-03/), if our topics contained Avro data, we could define our data model in an Avro schema file instead.
 [^10]: We can also use KStreams for lookup/join operations, but this is always a windowed operation, so we have reserved discussion of this topic until the next chapter.
 [^11]: Florian Trossbach and Matthias J. Sax go much deeper on this subject in their “[Crossing the Streams: Joins in Apache Kafka](https://www.confluent.io/blog/crossing-streams-joins-apache-kafka/)” article.
-[^12]: UNION queries are another method for combining datasets in the relational world. The behavior of the **merge** operator in Kafka Streams is more closely related to how a UNION query works.
+[^12]: **UNION** queries are another method for combining datasets in the relational world. The behavior of the **merge** operator in Kafka Streams is more closely related to how a **UNION** query works.
 [^13]: If you’re not using Confluent Platform, the script is **kafka-topics.sh**.
-[^14]: The GlobalKTable side of the join will still use the record key for the lookup.
+[^14]: The **GlobalKTable** side of the join will still use the record key for the lookup.
 [^15]: Streams are append-only, so do not need a subtractor.
 [^16]: We haven’t talked about deleting keys yet, but we will cover this topic in [Chapter 6](../chapter-06/), when we discuss cleaning up state stores.
 [^17]: The latter of these is not advisable. Running a single Kafka Streams application would consolidate the entire application state to a single instance, but Kafka Streams is meant to be run in a distributed fashion for maximizing performance and fault tolerance.
 [^18]: And other clients if desired, e.g., humans.
-[^19]: Which replaces the metadataForKey method that was widely used in versions < 2.5, but officially deprecated in that release.
-[^20]: There is an overloaded version of the queryMetadataForKey method that accepts a custom StreamPartitioner as well.
+[^19]: Which replaces the **metadataForKey** method that was widely used in versions < 2.5, but officially deprecated in that release.
+[^20]: There is an overloaded version of the **queryMetadataForKey** method that accepts a custom **StreamPartitioner** as well.
