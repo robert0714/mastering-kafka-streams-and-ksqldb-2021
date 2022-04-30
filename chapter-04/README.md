@@ -606,24 +606,251 @@ dev-players-STATE-STORE-0000000002-changelog     (2)
 OK, we’re ready to move on to the second join.
 
 #### KStream to GlobalKTable Join (products Join)
-As we discussed in the co-partitioning requirements, records on either side of a GlobalKTable join do not need to share the same key. Since the local task has a full copy of the table, we can actually perform a join using some attribute of the record value itself on the stream side of the join,14 which is more efficient than having to rekey records through a repartition topic just to ensure related records are handled by the same task.
+As we discussed in the co-partitioning requirements, records on either side of a **GlobalKTable** join do not need to share the same key. Since the local task has a full copy of the table, we can actually perform a join using some attribute of the record value itself on the stream side of the join,14 which is more efficient than having to rekey records through a repartition topic just to ensure related records are handled by the same task.
 
-To perform a KStream-GlobalKTable join, we need to create something called a KeyValueMapper, whose purpose is to specify how to map a KStream record to a GlobalKTable record.For this tutorial, we can simply extract the product ID from the ScoreWithPlayer value to map these records to a Product, as shown here:
+To perform a ***KStream-GlobalKTable*** join, we need to create something called a **KeyValueMapper**, whose purpose is to specify how to map a **KStream** record to a **GlobalKTable** record.For this tutorial, we can simply extract the product ID from the **ScoreWithPlayer** value to map these records to a **Product**, as shown here:
 ```java
 KeyValueMapper<String, ScoreWithPlayer, String> keyMapper =
   (leftKey, scoreWithPlayer) -> {
     return String.valueOf(scoreWithPlayer.getScoreEvent().getProductId());
   };
 ```
-With our KeyValueMapper in place, and also the ValueJoiner that we created in [Example 4-4](#example-4-4-a-valuejoiner-expressed-as-a-lambda-that-we-will-use-for-the-join), we can now perform the join:
+With our **KeyValueMapper** in place, and also the ValueJoiner that we created in [Example 4-4](#example-4-4-a-valuejoiner-expressed-as-a-lambda-that-we-will-use-for-the-join), we can now perform the join:
 ```java
 KStream<String, Enriched> withProducts =
   withPlayers.join(products, keyMapper, productJoiner);
 ```
 This completes the second and third steps of our leaderboard topology (see [Figure 4-1](#figure-4-1-the-topology-that-we-will-be-implementing-in-our-stateful-video-game-leaderboard-application)). The next thing we need to tackle is grouping the enriched records so that we can perform an aggregation.
+
+### Grouping Records
+Before you perform any stream or table aggregations in Kafka Streams, you must first group the **KStream** or **KTable** that you plan to aggregate. The purpose of grouping is the same as rekeying records prior to joining: to ensure the related records are processed by the same observer, or Kafka Streams task.
+
+There are some slight differences between grouping streams and tables, so we will take a look at each.
+
+#### Grouping Streams
+There are two operators that can be used for grouping a **KStream**:
+* groupBy
+* groupByKey
+
+Using groupBy is similar to the process of rekeying a stream using selectKey, since this operator is a key-changing operator and causes Kafka Streams to mark the stream for repartitioning. If a downstream operator is added that reads the new key, Kafka Streams will automatically create a repartition topic and route the data back to Kafka to complete the rekeying process.
+
+[Example 4-5](#example-4-5-use-the-groupby-operator-to-rekey-and-group-a-kstream-at-the-same-time) shows how to use the groupBy operator to group a **KStream**.
+###### Example 4-5. Use the groupBy operator to rekey and group a ***KStream*** at the same time
+```java
+KGroupedStream<String, Enriched> grouped =
+  withProducts.groupBy(
+      (key, value) -> value.getProductId().toString(),           (1)
+      Grouped.with(Serdes.String(), JsonSerdes.Enriched()));     (2) 
+```
+1. We can use a lambda to select the new key, since the **groupBy** operator expects a **KeyValueMapper**, which happens to be a functional interface.
+1. **Grouped** allows us to pass in some additional options for grouping, including the key and value Serdes to use when serializing the records.
+
+However, if your records don’t need to be rekeyed, then it is preferable to use the **groupByKey** operator instead. **groupByKey** will not mark the stream for repartitioning, and will therefore be more performant since it avoids the additional network calls associated with sending data back to Kafka for repartitioning. The **groupByKey** implementation is shown here:
+```java
+KGroupedStream<String, Enriched> grouped =
+    withProducts.groupByKey(
+      Grouped.with(Serdes.String(),
+      JsonSerdes.Enriched()));
+```
+Since we want to calculate the high scores for each ``product ID``, and since our enriched stream is currently keyed by ``player ID``, we will use the groupBy variation shown in [Example 4-5](#example-4-5-use-the-groupby-operator-to-rekey-and-group-a-kstream-at-the-same-time) in the leaderboard topology.
+
+Regardless of which operator you use for grouping a stream, Kafka Streams will return a new type that we haven’t discussed before: **KGroupedStream**. **KGroupedStream** is just an intermediate representation of a stream that allows us to perform aggregations. We will look at aggregations shortly, but first, let’s take a look at how to group **KTables**.
+
+#### Grouping Tables
+Unlike grouping streams, there is only one operator available for grouping tables: **groupBy**. Furthermore, instead of returning a **KGroupedStream**, invoking **groupBy** on a **KTable** returns a different intermediate representation: **KGroupedTable**. Otherwise, the process of grouping **KTables** is identical to grouping a **KStream**. For example, if we wanted to group the **players** **KTable** so that we could later perform some aggregation (e.g., count the number of players), then we could use the following code:
+```java
+KGroupedTable<String, Player> groupedPlayers =
+    players.groupBy(
+        (key, value) -> KeyValue.pair(key, value),
+        Grouped.with(Serdes.String(), JsonSerdes.Player()));
+```
+The preceding code block isn’t needed for this tutorial since we don’t need to group the **players** table, but we are showing it here to demonstrate the concept. We now know how to group streams and tables, and have completed step 4 of our processor topology (see [Figure 4-1](#figure-4-1-the-topology-that-we-will-be-implementing-in-our-stateful-video-game-leaderboard-application)). Next, we’ll learn how to perform aggregations in Kafka Streams.
+
+
+## Aggregations
+One of the final steps required for our leaderboard topology is to calculate the high scores for each game. Kafka Streams gives us a set of operators that makes performing these kinds of aggregations very easy:
+
+* aggregate
+* reduce
+* count
+
+At a high level, aggregations are just a way of combining multiple input values into a single output value. We tend to think of aggregations as mathematical operations, but they don’t have to be. While **count** is a mathematical operation that computes the number of events per key, both the **aggregate** and **reduce** operators are more generic, and can combine values using any combinational logic you specify.
+
+> # NOTE
+> **reduce** is very similar to **aggregate**. The difference lies in the return type. The **reduce** operator requires the output of an aggregation to be of the same type as the input, while the **aggregate** operator can specify a different type for the output record.
+
+Furthermore, aggregations can be applied to both streams and tables. The semantics are a little different across each, since streams are immutable while tables are mutable. This translates into slightly different versions of the **aggregate** and **reduce** operators, with the streams version accepting two parameters: an ``initializer`` and an ``adder``, and the table version accepting three parameters: an ``initializer``, ``adder``, and ``subtractor``.[^15]
+
+Let’s take a look at how to aggregate streams by creating our high scores aggregation.
+
+### Aggregating Streams
+In this section, we’ll learn how to apply aggregations to record streams, which involves creating a function for initializing a new aggregate value (called an ``initializer``) and a function for performing subsequent aggregations as new records come in for a given key (called an ``adder`` function). First, we’ll learn about initializers.
+
+#### Initializer
+When a new key is seen by our Kafka Streams topology, we need some way of initializing the aggregation. The interface that helps us with this is Initializer, and like many of the classes in the Kafka Streams API, **Initializer** is a functional interface (i.e., contains a single method), and therefore can be defined as a lambda.
+
+For example, if you were to look at the internals of the count aggregation, you’d see an initializer that sets the initial value of the aggregation to 0:
+```java
+Initializer<Long> countInitializer = () -> 0L; 
+```
+The initializer is defined as a lambda, since the **Initializer** interface is a functional interface.
+
+For more complex aggregations, you can provide your own custom initializer instead. For example, to implement a video game leaderboard, we need some way to compute the top three high scores for a given game. To do this, we can create a separate class that will include the logic for tracking the top three scores, and provide a new instance of this class whenever an aggregation needs to be initialized.
+
+In this tutorial, we will create a custom class called **HighScores** to act as our aggregation class. This class will need some underlying data structure to hold the top three scores for a given video game. One approach is to use a **TreeSet**, which is an ordered set included in the Java standard library, and is therefore pretty convenient for holding high scores (which are inherently ordered).
+
+An initial implementation of our data class that we’ll use for the high scores aggregation is shown here:
+```java
+public class HighScores {
+  private final TreeSet<Enriched> highScores = new TreeSet<>();
+}
+```
+
+Now we need to tell Kafka Streams how to initialize our new data class. Initializing a class is simple; we just need to instantiate it:
+
+```java
+Initializer<HighScores> highScoresInitializer = HighScores::new;
+```
+
+Once we have an initializer for our aggregation, we need to implement the logic for actually performing the aggregation (in this case, keeping track of the top three high scores for each video game).
+
+#### Adder
+The next thing we need to do in order to build a stream aggregator is to define the logic for combining two aggregates. This is accomplished using the **Aggregator** interface, which, like Initializer, is a functional interface that can be implemented using a lambda. The implementing function needs to accept three parameters:
+
+* The record key
+* The record value
+* The current aggregate value
+
+We can create our high scores aggregator with the following code:
+```java
+Aggregator<String, Enriched, HighScores> highScoresAdder =
+        (key, value, aggregate) -> aggregate.add(value);
+```
+
+Note that **aggregate** is a **HighScores** instance, and since our aggregator invokes the **HighScores**.``add`` method, we simply need to implement that in our **HighScores** class. As you can see in the following code block, the code is extremely simple, with the ``add`` method simply appending a new high score to the internal TreeSet, and then removing the lowest score if we have more than three high scores:
+```java
+public class HighScores {
+  private final TreeSet<Enriched> highScores = new TreeSet<>();
+  public HighScores add(final Enriched enriched) {
+    highScores.add(enriched);    (1)
+
+    if (highScores.size() > 3) {     (3)
+      highScores.remove(highScores.last());
+    }
+
+    return this;
+  }
+}
+```
+1. Whenever our adder method (**HighScores.add**) is called by Kafka Streams, we simply add the new record to the underlying **TreeSet**, which will sort each entry automatically.
+1. If we have more than three high scores in our **TreeSet**, remove the lowest score.
+
+In order for the **TreeSet** to know how to sort **Enriched** objects (and therefore, be able to identify the **Enriched** record with the lowest score to remove when our **highScores** aggregate exceeds three values), we will implement the **Comparable** interface, as shown in Example 4-6.
+
+###### Example 4-6. The updated **Enriched** class, which implements the **Comparable** interface
+```java
+public class Enriched implements Comparable<Enriched> {    (1)
+
+  @Override
+  public int compareTo(Enriched o) {         (2)
+    return Double.compare(o.score, score);
+  }
+
+  // omitted for brevity
+}
+```
+1. We will update our **Enriched** class so that it implements **Comparable**, since determining the top three high scores will involve comparing one Enriched object to another.
+1. Our implementation of the **compareTo** method uses the score property as a method of comparing two different **Enriched** objects.
+
+Now that we have both our initializer and adder function, we can perform the aggregation using the code in [Example 4-7](#example-4-7-use-kafka-streams-aggregate-operator-to-perform-our-high-scores-aggregation).
+
+###### Example 4-7. Use Kafka Streams’ aggregate operator to perform our high scores aggregation
+```java
+KTable<String, HighScores> highScores =
+    grouped.aggregate(highScoresInitializer, highScoresAdder);
+```
+
+### Aggregating Tables
+The process of aggregating tables is pretty similar to aggregating streams. We need an ``initializer`` and an ``adder`` function. However, tables are mutable, and need to be able to update an aggregate value whenever a key is deleted.[^16] We also need a third parameter, called a ``subtractor`` function.
+
+#### Subtractor
+While this isn’t necessary for the leaderboard example, let’s assume we want to count the number of players in our **players KTable**. We could use the count operator, but to demonstrate how to build a subtractor function, we’ll build our own aggregate function that is essentially equivalent to the count operator. A basic implementation of an aggregate that uses a subtractor function (as well as an initializer and adder function, which is required for both **KStream** and **KTable** aggregations), is shown here:
+```java
+KGroupedTable<String, Player> groupedPlayers =
+  players.groupBy(
+      (key, value) -> KeyValue.pair(key, value),
+      Grouped.with(Serdes.String(), JsonSerdes.Player()));
+
+groupedPlayers.aggregate(
+    () -> 0L,    (1)
+    (key, value, aggregate) -> aggregate + 1L,     (2)
+    (key, value, aggregate) -> aggregate - 1L);     (3)
+
+```
+1. The initializer function initializes the aggregate to 0.
+1. The adder function increments the current count when a new key is seen.
+1. The subtractor function decrements the current count when a key is removed.
+
+We have now completed step 5 of our leaderboard topology ([Figure 4-1](#figure-4-1-the-topology-that-we-will-be-implementing-in-our-stateful-video-game-leaderboard-application)). We’ve written a decent amount of code, so let’s see how the individual code fragments fit together in the next section.
+
+## Putting It All Together
+Now that we’ve constructed the individual processing steps on our leaderboard topology, let’s put it all together. [Example 4-8](#example-4-8-the-processor-topology-for-our-video-game-leaderboard-application) shows how the topology steps we’ve created so far come together.
+
+###### Example 4-8. The processor topology for our video game leaderboard application
+```java
+// the builder is used to construct the topology
+StreamsBuilder builder = new StreamsBuilder();
+
+// register the score events stream
+KStream<String, ScoreEvent> scoreEvents =               (1)
+    builder
+        .stream(
+          "score-events",
+          Consumed.with(Serdes.ByteArray(), JsonSerdes.ScoreEvent()))
+        .selectKey((k, v) -> v.getPlayerId().toString());            (2)
+
+// create the partitioned players table
+KTable<String, Player> players =            (3)
+    builder.table("players", Consumed.with(Serdes.String(), JsonSerdes.Player()));
+
+// create the global product table
+GlobalKTable<String, Product> products =            (4)
+    builder.globalTable(
+      "products",
+      Consumed.with(Serdes.String(), JsonSerdes.Product()));
+
+// join params for scoreEvents - players join
+Joined<String, ScoreEvent, Player> playerJoinParams =
+    Joined.with(Serdes.String(), JsonSerdes.ScoreEvent(), JsonSerdes.Player());
+
+// join scoreEvents - players
+ValueJoiner<ScoreEvent, Player, ScoreWithPlayer> scorePlayerJoiner =
+    (score, player) -> new ScoreWithPlayer(score, player);
+KStream<String, ScoreWithPlayer> withPlayers =
+    scoreEvents.join(players, scorePlayerJoiner, playerJoinParams);              (5)
+
+// map score-with-player records to products
+KeyValueMapper<String, ScoreWithPlayer, String> keyMapper =
+  (leftKey, scoreWithPlayer) -> {
+    return String.valueOf(scoreWithPlayer.getScoreEvent().getProductId());
+  };
+
+// join the withPlayers stream to the product global ktable
+ValueJoiner<ScoreWithPlayer, Product, Enriched> productJoiner =            (6)
+  (scoreWithPlayer, product) -> new Enriched(scoreWithPlayer, product);
+KStream<String, Enriched> withProducts =
+  withPlayers.join(products, keyMapper, productJoiner); 
+
+// Group the enriched product stream
+KGroupedStream<String, Enriched> grouped =
+  withProducts.groupBy(            (7)
+      (key, value) -> value.getProductId().toString(),
+      Grouped.with(Serdes.String(), JsonSerdes.Enriched()));
+```
 # Producing Test Data
 
 Once your application is running, you can produce some test data to see it in action. Since our video game leaderboard application reads from multiple topics (`players`, `products`, and `score-events`), we have saved example records for each topic in the `data/` directory. To produce data into each of these topics, open a new tab in your shell and run the following commands.
+
 
 ```sh
 # log into the broker, which is where the kafka console scripts live
