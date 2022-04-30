@@ -519,22 +519,23 @@ Joined<String, ScoreEvent, Player> playerJoinParams =
     JsonSerdes.Player()
   );
 KStream<String, ScoreWithPlayer> withPlayers =
-   
+```
 
 We simply save a reference to each record involved in the join inside of our wrapper class.
 
 We can use our new wrapper class as the return type in our ValueJoiner. Example 4-3 shows an example implementation of a ValueJoiner that combines a ScoreEvent (from the score-events KStream) and a Player (from the players KTable) into a ScoreWithPlayer instance.
 
-Example 4-3. The ValueJoiner for combining score-events and players
+###### Example 4-3. The ValueJoiner for combining score-events and players
+```java
 ValueJoiner<ScoreEvent, Player, ScoreWithPlayer> scorePlayerJoiner =
         (score, player) -> new ScoreWithPlayer(score, player); 
-
+```
 We could also simply use a static method reference here, such as ScoreWithPlayer::new.
 
 Let’s move on to the second join. This join needs to combine a ScoreWithPlayer (from the output of the first join) with a Product (from the products GlobalKTable). We could reuse the wrapper pattern again, but we could also simply extract the properties we need from each side of the join, and discard the rest.
 
 The following code block shows an implementation of a data class that follows the second pattern. We simply extract the values we want and save them to the appropriate class properties:
-
+```java
 public class Enriched {
   private Long playerId;
   private Long productId;
@@ -552,16 +553,19 @@ public class Enriched {
 
   // accessors omitted from brevity
 }
+```
 With this new data class in place, we can build our ValueJoiner for the KStream-GlobalKTable join using the code shown in Example 4-4.
 
-Example 4-4. A ValueJoiner, expressed as a lambda, that we will use for the join
+###### Example 4-4. A ValueJoiner, expressed as a lambda, that we will use for the join
+```java
 ValueJoiner<ScoreWithPlayer, Product, Enriched> productJoiner =
     (scoreWithPlayer, product) -> new Enriched(scoreWithPlayer, product);
+```
 Now that we’ve told Kafka Streams how to combine our join records, we can actually perform the joins.
 
-KStream to KTable Join (players Join)
+#### KStream to KTable Join (players Join)
 It’s time to join our score-events KStream with our players KTable. Since we only want to trigger the join when the ScoreEvent record can be matched to a Player record (using the record key), we’ll perform an inner join using the join operator, as shown here:
-
+```java
 Joined<String, ScoreEvent, Player> playerJoinParams =
   Joined.with(      (1)
     Serdes.String(),
