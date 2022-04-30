@@ -846,7 +846,40 @@ KGroupedStream<String, Enriched> grouped =
   withProducts.groupBy(            (7)
       (key, value) -> value.getProductId().toString(),
       Grouped.with(Serdes.String(), JsonSerdes.Enriched()));
+
+// The initial value of our aggregation will be a new HighScores instance
+Initializer<HighScores> highScoresInitializer = HighScores::new;
+
+// The logic for aggregating high scores is implemented in the HighScores.add method
+Aggregator<String, Enriched, HighScores> highScoresAdder =
+  (key, value, aggregate) -> aggregate.add(value);
+
+// Perform the aggregation, and materialize the underlying state store for querying
+KTable<String, HighScores> highScores =
+    grouped.aggregate(            (8)
+        highScoresInitializer,
+        highScoresAdder);
 ```
+1. Read the **score-events** into a **KStream**.
+1. Rekey the messages to meet the co-partitioning requirements needed for the join.
+1. Read the **players** topic into a KTable since the keyspace is large (allowing us to shard the state across multiple application instances) and since we want time synchronized processing for the **score-events** -> **players** join.
+1. Read the **products** topic as a GlobalKTable, since the keyspace is small and we don’t need time synchronized processing.
+1. Join the **score-events** stream and the **players** table.
+1. Join the enriched **score-events** with the **products** table.
+1. Group the enriched stream. This is a prerequisite for aggregating.
+1. Aggregate the grouped stream. The aggregation logic lives in the **HighScores** class.
+
+Let’s add the necessary configuration for our application and start streaming:
+```java
+Properties props = new Properties();
+props.put(StreamsConfig.APPLICATION_ID_CONFIG, "dev");
+props.put(StreamsConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
+
+KafkaStreams streams = new KafkaStreams(builder.build(), props);
+streams.start();`
+```
+At this point, our application is ready to start receiving records and calculating high scores for our leaderboard. However, we still have one final step to tackle in order to expose the leaderboard results to external clients. Let’s move on to the final step of our processor topology, and learn how to expose the state of our Kafka Streams application using interactive queries.
+
 # Producing Test Data
 
 Once your application is running, you can produce some test data to see it in action. Since our video game leaderboard application reads from multiple topics (`players`, `products`, and `score-events`), we have saved example records for each topic in the `data/` directory. To produce data into each of these topics, open a new tab in your shell and run the following commands.
@@ -875,7 +908,363 @@ $ kafka-console-producer \
   --bootstrap-server kafka:9092 \
   --topic score-events < score-events.json
 ```
+# Interactive Queries
+One of the defining features of Kafka Streams is its ability to expose application state, both locally and to the outside world. The latter makes it easy to build event-driven microservices with extremely low latency. In this tutorial, we can use interactive queries to expose our high score aggregations.
 
+In order to do this, we need to ``materialize`` the state store. We’ll learn how to do this in the next section.
+
+## Materialized Stores
+We already know that stateful operators like aggregate, count, reduce, etc., leverage state stores to manage internal state. However, if you look closely at our method for aggregating high scores in [Example 4-7](#example-4-7-use-kafka-streams-aggregate-operator-to-perform-our-high-scores-aggregation), you won’t see any mention of a state store. This variant of the aggregate method uses an internal state store that is only accessed by the processor topology.
+
+If we want to enable read-only access of the underlying state store for ad hoc queries, we can use one of the overloaded methods to force the materialization of the state store locally. ``Materialized state stores`` differ from internal state stores in that they are explicitly named and are queryable outside of the processor topology. This is where the **Materialized** class comes in handy. [Example 4-9](#example-4-9-materialized-state-store-with-minimal-configuration) shows how to materialize a persistent key-value store using the **Materialized** class, which will allow us to query the store using interactive queries.
+
+###### Example 4-9. Materialized state store with minimal configuration
+```java
+KTable<String, HighScores> highScores =
+    grouped.aggregate(
+        highScoresInitializer,
+        highScoresAdder,
+        Materialized.<String, HighScores, KeyValueStore<Bytes, byte[]>>     (1)
+            as("leader-boards")     (2)
+            .withKeySerde(Serdes.String())      (3)
+            .withValueSerde(JsonSerdes.HighScores()));
+```
+1. This variation of the Materialized.as method includes three generics:
+    * The key type of the store (in this case, **String**)
+    * The value type of the store (in this case, **HighScores**)
+    * The type of state store (in this case, we’ll use a simple key-value store, represented by ``KeyValueStore<Bytes, byte[]>``)
+1. Provide an explicit name for the store to make it available for querying outside of the processor topology.
+1. We can customize the materialized state store using a variety of parameters, including the key and value Serdes, as well as other options that we will explore in [Chapter 6](../chapter-06/README.md).
+
+Once we’ve materialized our leader-boards state store, we are almost ready to expose this data via ad hoc queries. The first thing we need to do, however, is to retrieve the store from Kafka Streams.
+
+## Accessing Read-Only State Stores
+When we need to access a state store in read-only mode, we need two pieces of information:
+* The name of the state store
+* The type of state store
+
+As we saw in [Example 4-9](#example-4-9-materialized-state-store-with-minimal-configuration), the name of our state store is leader-boards. We need to retrieve the appropriate read-only wrapper for our underlying state store using the QueryableStoreTypes factory class. There are multiple state stores supported, including:
+
+* QueryableStoreTypes.keyValueStore()
+* QueryableStoreTypes.timestampedKeyValueStore()
+* QueryableStoreTypes.windowStore()
+* QueryableStoreTypes.timestampedWindowStore()
+* QueryableStoreTypes.sessionStore()
+
+In our case, we’re using a simple key-value store, so we need the ``QueryableStoreType.keyValueStore()`` method. With both the state store name and the state store type, we can instantiate an instance of a queryable state store to be used in interactive queries, by using the ``KafkaStreams.store()`` method, as shown in [Example 4-10](#example-4-9-materialized-state-store-with-minimal-configuration).
+
+###### Example 4-10. Instantiate a key-value store that can be used for performing interactive queries
+```java
+ReadOnlyKeyValueStore<String, HighScores> stateStore =
+    streams.store(
+        StoreQueryParameters.fromNameAndType(
+            "leader-boards",
+            QueryableStoreTypes.keyValueStore()));
+```
+When we have our state store instance, we can query it. The next section discusses the different query types available in key-value stores.
+
+## Querying Nonwindowed Key-Value Stores
+Each state store type supports different kinds of queries. For example, windowed stores (e.g., **ReadOnlyWindowStore**) support key lookups using time ranges, while simple key-value stores (**ReadOnlyKeyValueStore**) support point lookups, range scans, and count queries.
+
+We will discuss windowed state stores in the next chapter, so for now, let’s demonstrate the kinds of queries we can make to our **leader-boards** store.
+
+The easiest way to determine which query types are available for your state store type is to check the underlying interface. As we can see from the interface definition in the following snippet, simple key-value stores support several different types of queries:
+```java
+public interface ReadOnlyKeyValueStore<K, V> {
+
+    V get(K key);
+
+    KeyValueIterator<K, V> range(K from, K to);
+
+    KeyValueIterator<K, V> all();
+
+    long approximateNumEntries();
+}
+```
+
+Let’s take a look at each of these query types, starting with the first: point lookups (``get()``).
+
+### Point lookups
+Perhaps the most common query type, point lookups simply involve querying the state store for an individual key. To perform this type of query, we can use the ``get`` method to retrieve the value for a given key. For example:
+```java
+HighScores highScores = stateStore.get(key);
+```
+
+Note that a point lookup will return either a deserialized instance of the value (in this case, a **HighScores** object, since that is what we’re storing in our state store) or **null** if the key is not found.
+
+### Range scans
+Simple key-value stores also support range scan queries. Range scans return an iterator for an inclusive range of keys. It’s very important to close the iterator once you are finished with it to avoid memory leaks.
+
+The following code block shows how to execute a range query, iterate over each result, and close the iterator:
+```java
+KeyValueIterator<String, HighScores> range = stateStore.range(1, 7);    (1)
+
+while (range.hasNext()) {
+    KeyValue<String, HighScores> next = range.next();     (2)
+
+    String key = next.key;
+    HighScores highScores = next.value;     (3)
+
+    // do something with high scores object
+}
+
+range.close();     (4)
+```
+1. Returns an iterator that can be used for iterating through each key in the selected range.
+1. Get the next element in the iteration.
+1. The HighScores value is available in the next.value property.
+1. It’s very important to close the iterator to avoid memory leaks. Another way of closing is to use a try-with-resources statement when getting the iterator.
+
+### All entries
+Similar to a range scan, the ``all()`` query returns an iterator of key-value pairs, and is similar to an unfiltered ``SELECT *`` query. However, this query type will return an iterator for all of the entries in our state store, instead of those within a specific key range only. As with range queries, it’s important to close the iterator once you’re finished with it to avoid memory leaks. The following code shows how to execute an ``all()`` query. Iterating through the results and closing the iterator is the same as the range scan query, so we have omitted that logic for brevity:
+```java
+KeyValueIterator<String, HighScores> range = stateStore.all();
+```
+### Number of entries
+Finally, the last query type is similar to a ``COUNT(*)`` query, and returns the approximate number of entries in the underlying state store.
+
+> # NOTE
+> When using RocksDB persistent stores, the returned value is approximate since calculating a precise count can be expensive and, when it comes to RocksDB-backed stores, challenging as well. Taken from the [RocksDB FAQ](https://github.com/facebook/rocksdb/wiki/RocksDB-FAQ):
+> 
+> Obtaining an accurate number of keys [in] LSM databases like RocksDB is a challenging problem as they have duplicate keys and deletion entries (i.e., tombstones) that will require a full compaction in order to get an accurate number of keys. In addition, if the RocksDB database contains merge operators, it will also make the estimated number of keys less accurate.
+> 
+> On the other hand, if using an in-memory store, the count will be exact.
+
+To execute this type of query against a simple key-value store, we could run the following code:
+```java
+long approxNumEntries = stateStore.approximateNumEntries();
+```
+Now that we know how to query simple key-value stores, let’s see where we can actually execute these queries from.
+
+## Local Queries
+Each instance of a Kafka Streams application can query its own local state. However, it’s important to remember that unless you are materializing a **GlobalKTable** or running a single instance of your Kafka Streams app,[^17] the local state will only represent a partial view of the entire application state (this is the nature of a **KTable**, as discussed in “[KTable](#ktable)”).
+
+Luckily for us, Kafka Streams provides some additional methods that make it easy to connect distributed state stores, and to execute remote queries, which allow us to query the entire state of our application. We’ll learn about remote queries next.
+
+## Remote Queries
+In order to query the full state of our application, we need to:
+* Discover which instances contain the various fragments of our application state
+* Add a remote procedure call (RPC) or REST service to expose the local state to other running application instances[^18]
+* Add an RPC or REST client for querying remote state stores from a running application instance
+
+Regarding the last two points, you have a lot of flexibility in choosing which server and client components you want to use for inter-instance communication. In this tutorial, we’ll use [Javalin](https://javalin.io/) to implement a REST service due to its simple API. We will also use [OkHttp](https://square.github.io/okhttp/), developed by Square, for our REST client for its ease of use. Let’s add these dependencies to our application by updating our ***build.gradle*** file with the following:
+```
+dependencies {
+
+  // required for interactive queries (server)
+  implementation 'io.javalin:javalin:3.12.0'
+
+  // required for interactive queries (client)
+  implementation 'com.squareup.okhttp3:okhttp:4.9.0'
+
+  // other dependencies
+}
+```
+Now let’s tackle the issue of instance discovery. We need some way of broadcasting which instances are running at any given point in time and where they are running. The latter can be accomplished using the ``APPLICATION_SERVER_CONFIG`` parameter to specify a host and port pair in Kafka Streams, as shown here:
+```java
+Properties props = new Properties();
+
+props.put(StreamsConfig.APPLICATION_SERVER_CONFIG, "myapp:8080");    (1)
+
+// other Kafka Streams properties omitted for brevity
+
+KafkaStreams streams = new KafkaStreams(builder.build(), props);
+```
+1. Configure an endpoint. This will be communicated to other running application instances through Kafka’s consumer group protocol. It’s important to use an **IP** and port pair that other instances can use to communicate with your application (i.e., **localhost** would not work since it would resolve to different IPs depending on the instance).
+
+Note that setting the **APPLICATION_SERVER_CONFIG** parameter config doesn’t actually tell Kafka Streams to start listening on whatever port you configure. In fact, Kafka Streams does not include a built-in RPC service. However, this host/port information is transmitted to other running instances of your Kafka Streams application and is made available through dedicated API methods, which we will discuss later. But first, let’s set up our REST service to start listening on the appropriate port (**8080** in this example).
+
+In terms of code maintainability, it makes sense to define our leaderboard REST service in a dedicated file, separate from the topology definition. The following code block shows a simple implementation of the leaderboard service:
+
+```java
+class LeaderboardService {
+  private final HostInfo hostInfo;         (1)
+  private final KafkaStreams streams;          (2)
+
+  LeaderboardService(HostInfo hostInfo, KafkaStreams streams) {
+    this.hostInfo = hostInfo;
+    this.streams = streams;
+  }
+
+  ReadOnlyKeyValueStore<String, HighScores> getStore() {           (3)
+    return streams.store(
+        StoreQueryParameters.fromNameAndType(
+            "leader-boards",
+            QueryableStoreTypes.keyValueStore()));
+  }
+
+  void start() {
+    Javalin app = Javalin.create().start(hostInfo.port());          (4)
+    app.get("/leaderboard/:key", this::getKey);           (5)
+  }
+}
+```
+1. **HostInfo** is a simple wrapper class in Kafka Streams that contains a hostname and port. We’ll see how to instantiate this shortly.
+1. We need to keep track of the local Kafka Streams instance. We will use some API methods on this instance in the next code block.
+1. Add a dedicated method for retrieving the state store that contains the leaderboard aggregations. This follows the same method for retrieving a read-only state store wrapper that we saw in [Example 4-10](#example-4-10-instantiate-a-key-value-store-that-can-be-used-for-performing-interactive-queries).
+1. Start the Javalin-based web service on the configured port.
+1. Adding endpoints with Javalin is easy. We simply map a URL path to a method, which we will implement shortly. Path parameters, which are specified with a leading colon (e.g., ``:key``), allow us to create dynamic endpoints. This is ideal for a point lookup query.
+
+Now, let’s implement the ``/leaderboard/:key`` endpoint, which will show the high scores for a given key (which in this case is a product ID). As we recently learned, we can use a point lookup to retrieve a single value from our state store. A naive implementation is shown in the following:
+```java
+void getKey(Context ctx) {
+    String productId = ctx.pathParam("key");
+    HighScores highScores = getStore().get(productId);     (1)
+    ctx.json(highScores.toList());      (2)
+}
+```
+1. Use a point lookup to retrieve a value from the local state store.
+1. Note: the toList() method is available in the source code.
+
+Unfortunately, this isn’t sufficient. Consider the example where we have two running instances of our Kafka Streams application. Depending on which instance we query and when we issue the query (state can move around whenever there is a consumer rebalance), we may not be able to retrieve the requested value. [Figure 4-7](#figure-4-7-when-state-is-partitioned-across-multiple-application-instances-local-queries-are-not-sufficient) shows this conundrum.
+
+###### Figure 4-7. When state is partitioned across multiple application instances, local queries are not sufficient
+![When state is partitioned across multiple application instances, local queries are not sufficient](./material/mksk_0407.png)  
+Figure 4-7. When state is partitioned across multiple application instances, local queries are not sufficient
+
+Fortunately, Kafka Streams provides a method called queryMetadataForKey,[^19] which allows us to discover the application instance (local or remote) that a specific key lives on. An improved implementation of our getKey method is shown in [Example 4-11](#example-4-11-an-updated-implementation-of-the-getkey-method-which-leverages-remote-queries-to-pull-data-from-different-application-instances).
+
+
+###### Example 4-11. An updated implementation of the getKey method, which leverages remote queries to pull data from different application instances
+```java
+void getKey(Context ctx) {
+
+  String productId = ctx.pathParam("key");
+
+  KeyQueryMetadata metadata =
+      streams.queryMetadataForKey(
+        "leader-boards", productId, Serdes.String().serializer());      (1)
+
+  if (hostInfo.equals(metadata.activeHost())) {
+    HighScores highScores = getStore().get(productId);       (2)
+
+    if (highScores == null) {       (3)
+      // game was not found
+      ctx.status(404);
+      return;
+    }
+
+    // game was found, so return the high scores
+    ctx.json(highScores.toList());       (4)
+    return;
+  }
+
+  // a remote instance has the key
+  String remoteHost = metadata.activeHost().host();
+  int remotePort = metadata.activeHost().port();
+  String url =
+    String.format(
+        "http://%s:%d/leaderboard/%s",
+        remoteHost, remotePort, productId);       (5)
+
+  OkHttpClient client = new OkHttpClient();
+  Request request = new Request.Builder().url(url).build();
+
+  try (Response response = client.newCall(request).execute()) {       (6)
+    ctx.result(response.body().string());
+  } catch (Exception e) {
+    ctx.status(500);
+  }
+}
+```
+1. **queryMetadataForKey** allows us to find which host a specific key should live on.
+1. If the local instance has the key, just query the local state store.
+1. The **queryMetadataForKey** method doesn’t actually check to see if the key exists. It uses the default stream partitioner[^20] to determine where the key ``would exist, if it existed``. Therefore, we check for null (which is returned if the key isn’t found) and return a **404** response if it doesn’t exist.
+1. Return a formatted response containing the high scores.
+1. If we made it this far, then the key exists on a remote host, if it exists at all. Therefore, construct a URL using the metadata, which includes the host and port of the Kafka Streams instance that would contain the specified key.
+1. Invoke the request, and return the result if successful.
+
+To help visualize what is happening here, [Figure 4-8](#figure-4-8-remote-queries-allow-us-to-query-the-state-of-other-running-application-instances) shows how distributed state stores can be connected using a combination of instance discovery and an RPC/REST service.
+
+###### Figure 4-8. Remote queries allow us to query the state of other running application instances
+![Remote queries allow us to query the state of other running application instances](./material/mksk_0408.png)  
+Figure 4-8. Remote queries allow us to query the state of other running application instances
+
+But what if you need to execute a query that doesn’t operate on a single key? For example, what if you need to count the number of entries across all of your distributed state stores? The **queryMetadataForKey** wouldn’t work well in this case, since it requires us to specify a single key. Instead, we would leverage another Kafka Streams method, called **allMetadataForStore**, which returns the endpoint for every running Kafka Streams application that shares the same application ID and has at least one active partition for the provided store name.
+
+Let’s add a new endpoint to our leaderboard service that surfaces the number of high score records across all of the running application instances:
+```java
+app.get("/leaderboard/count", this::getCount);
+```
+Now, we’ll implement the **getCount** method referenced in the preceding code, which leverages the **allMetadataForStore** method to get the total number of records in each remote state store:
+```java
+void getCount(Context ctx) {
+  long count = getStore().approximateNumEntries();           (1)
+  for (StreamsMetadata metadata : streams.allMetadataForStore("leader-boards")) {         (2)
+    if (!hostInfo.equals(metadata.hostInfo())) {
+      continue;                    (3)
+    }
+    count += fetchCountFromRemoteInstance(          (4)
+      metadata.hostInfo().host(),
+      metadata.hostInfo().port());
+  }
+  ctx.json(count);
+}                                          
+```
+1. Initialize the count with the number of entries in the local state store.
+1. On the following line, we use the **allMetadataForStore** method to retrieve the host/port pairs for each Kafka Streams instance that contains a fragment of the state we want to query.
+1. If the metadata is for the current host, then continue through the loop since we’ve already pulled the entry count from the local state store.
+1. If the metadata does not pertain to the local instance, then retrieve the count from the remote instance. We’ve omitted the implementation details of **fetchCountFromRemoteInstance** from this text since it is similar to what we saw in [Example 4-11](#example-4-11-an-updated-implementation-of-the-getkey-method-which-leverages-remote-queries-to-pull-data-from-different-application-instances), where we instantiated a REST client and issued a request against a remove application instance. If you’re interested in the implementation details, please check the source code for this chapter.
+
+This completes the last step of our leaderboard topology (see [Figure 4-1](#figure-4-1-the-topology-that-we-will-be-implementing-in-our-stateful-video-game-leaderboard-application)). We can now run our application, generate some dummy data, and query our leaderboard service.
+
+The dummy data for each of the source topics is shown in [Example 4-12](#example-4-12-dummy-records-that-we-will-be-producing-to-our-source-topics).
+> # NOTE
+> For the keyed topics (**players** and **products**), the record key is formatted as ``<key>|<value>``. For the **score-events** topic, the dummy records are simply formatted as ``<value>``.
+
+###### Example 4-12. Dummy records that we will be producing to our source topics
+```shell
+# players
+1|{"id": 1, "name": "Elyse"}
+2|{"id": 2, "name": "Mitch"}
+3|{"id": 3, "name": "Isabelle"}
+4|{"id": 4, "name": "Sammy"}
+
+# products
+1|{"id": 1, "name": "Super Smash Bros"}
+6|{"id": 6, "name": "Mario Kart"}
+
+# score-events
+{"score": 1000, "product_id": 1, "player_id": 1}
+{"score": 2000, "product_id": 1, "player_id": 2}
+{"score": 4000, "product_id": 1, "player_id": 3}
+{"score": 500, "product_id": 1, "player_id": 4}
+{"score": 800, "product_id": 6, "player_id": 1}
+{"score": 2500, "product_id": 6, "player_id": 2}
+{"score": 9000.0, "product_id": 6, "player_id": 3}
+{"score": 1200.0, "product_id": 6, "player_id": 4}
+```
+
+If we produce this dummy data into the appropriate topics and then query our leaderboard service, we will see that our Kafka Streams application not only processed the high scores, but is now exposing the results of our stateful operations. An example response to an interactive query is shown in the following code block:
+```shell
+$ curl -s localhost:7000/leaderboard/1 | jq '.'
+```
+and the return is :
+```shell
+[
+  {
+    "playerId": 3,
+    "productId": 1,
+    "playerName": "Isabelle",
+    "gameName": "Super Smash Bros",
+    "score": 4000
+  },
+  {
+    "playerId": 2,
+    "productId": 1,
+    "playerName": "Mitch",
+    "gameName": "Super Smash Bros",
+    "score": 2000
+  },
+  {
+    "playerId": 1,
+    "productId": 1,
+    "playerName": "Elyse",
+    "gameName": "Super Smash Bros",
+    "score": 1000
+  }
+]
+```
 # Query the API
 This application exposes the video game leaderboard results using Kafka Streams interactive queries feature. The API is listening on port `7000`. Note the following examples use `jq` to prettify the output. If you don't have `jq` installed, either [install it][jq] or remove that part of the command.
 
