@@ -358,7 +358,26 @@ Figure 4-4. Joining messages
 Kafka Streams includes three different join operators for joining streams and tables. Each operator is detailed in Table 4-4.
 
 ###### Table 4-4. Join operators
-
+<table>
+    <tr>
+        <td>Operator</td>
+        <td>Description</td>
+    </tr>
+    <tr>
+        <td>join</td>
+        <td>Inner join. The join is triggered when the input records on both sides of the join share the same key.</td>
+    </tr>
+    <tr>
+        <td>leftJoin</td>
+        <td>Left join. The join semantics are different depending on the type of join:<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;For stream-table joins: a join is triggered when a record on the&nbsp;left side&nbsp;of the join is received. If there is no record with the same key on the right side of the join, then the right value is set to null.<br/>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;For stream-stream and table-table joins: same semantics as a stream-stream left join, except an input on the right side of the join can also trigger a lookup. If the right side triggers the join and there is no matching key on the left side, then the join will not produce a result.</td>
+    </tr>
+    <tr>
+        <td>outerJoin</td>
+        <td>Outer join.&nbsp;The join is triggered when a record on&nbsp;either side&nbsp;of the join is received. If there is no matching record with the same key on the opposite side of the join, then the corresponding value is set to null.</td>
+    </tr>
+</table>
 
 > # NOTE
 > When discussing the differences between join operators, we refer to different ``sides of the join``. Just remember, the ``right side`` of the join is always passed as a parameter to the relevant join operator. For example:
@@ -373,6 +392,48 @@ Now, let’s look at the type of joins we can create with these operators.
 Kafka Streams supports many different types of joins, as shown in [Table 4-5](#table-4-5-join-types). The co-partitioning column refers to something we will discuss in “[Co-Partitioning](#co-partitioning)”. For now, it’s sufficient to understand that co-partitioning is simply an extra set of requirements that are needed to actually perform the join.
 
 ###### Table 4-5. Join types
+<table>
+    <tr>
+        <td>Type</td>
+        <td>Windowed</td>
+        <td>Operators</td>
+        <td>Co-partitioning required</td>
+    </tr>
+    <tr>
+        <td>KStream-KStream</td>
+        <td>Yes<sup>a</sup></td>
+        <td>join<br/>
+leftJoin<br/>
+outerJoin</td>
+        <td>Yes</td>
+    </tr>
+    <tr>
+        <td>KTable-KTable</td>
+        <td>No</td>
+        <td>join<br/>
+leftJoin<br/>
+outerJoin</td>
+        <td>Yes</td>
+    </tr>
+    <tr>
+        <td>KStream-KTable</td>
+        <td>No</td>
+        <td>join<br/>
+leftJoin</td>
+        <td>Yes</td>
+    </tr>
+    <tr>
+        <td>KStream-GlobalKTable</td>
+        <td>No</td>
+        <td>join<br/>
+leftJoin</td>
+        <td>No</td>
+    </tr>
+    <tr>
+        <td colspan="4" ><bold>a</bold>&nbsp;One key thing to note is that&nbsp;KStream-KStream&nbsp;joins are windowed. We will discuss this in detail in the next chapter.</td>
+    </tr>
+</table>
+
 
 The two types of joins we need to perform in this chapter are:
 * **KStream-KTable** to join the **score-events** **KStream** and the players **KTable**
@@ -421,9 +482,10 @@ A visualization of how records are rekeyed is shown in Figure 4-6.
 Figure 4-6. Rekeying messages ensures related records appear on the same partition
 
 > # NOTE
-> When we add a key-changing operator to our topology, the underlying data will be **marked for repartitioning**. This means that as soon as we add a downstream operator that reads the new key, Kafka Streams will:
-> * Send the rekeyed data to an internal repartition topic
-> * Reread the newly rekeyed data back into Kafka Streams
+> When we add a key-changing operator to our topology, the underlying data will be **marked for repartitioning**. This means that as soon as we add a downstream operator that reads the new key, Kafka Streams will:   
+>     * Send the rekeyed data to an internal repartition topic   
+>     * Reread the newly rekeyed data back into Kafka Streams   
+> 
 > This process ensures related records (i.e., records that share the same key) will be processed by the same task in subsequent topology steps. However, the network trip required for rerouting data to a special repartition topic means that rekey operations can be expensive.
 
 What about our **KStream-GlobalKTable** for joining the **products** topic? As shown in [Table 4-5](#table-4-5-join-types), co-partitioning is not required for **GlobalKTable** joins since the state is fully replicated across each instance of our Kafka Streams app. Therefore, we will never encounter this kind of observability problem with a **GlobalKTable** join.
