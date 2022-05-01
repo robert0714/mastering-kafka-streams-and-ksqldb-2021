@@ -10,7 +10,7 @@ Code repository for the upcoming O'Reilly book: [Mastering Kafka Streams and ksq
 | --------| --------------------- | ---------------| -----------------| -------|
 | Early Release| 2.6.0 | 0.12.0| May 2020 | [early-release][early-release] |
 | [1st Edition][amzn]| 2.7.0 | 0.14.0| February 2021 | [1st-edition][1st-edition] |
-| main| 2.7.2 | 0.14.0| April 2022 | [master][master] |
+| main| 2.7.2 | 0.25.0| May 2022 | [master][master] |
 
 [amzn]: https://www.amazon.com/gp/product/1492062499/ref=as_li_tl?ie=UTF8&camp=1789&creative=9325&creativeASIN=1492062499&linkCode=as2&tag=mitchseymour-20&linkId=28979f4bdca5bc57af5ed2f8962d4d12
 [early-release]: https://github.com/mitch-seymour/mastering-kafka-streams-and-ksqldb/tree/early-release
