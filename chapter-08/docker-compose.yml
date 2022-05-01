@@ -31,7 +31,7 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
 
   ksqldb-server:
-    image: confluentinc/ksqldb-server:0.14.0
+    image: confluentinc/ksqldb-server:0.25.1
     hostname: ksqldb-server
     container_name: ksqldb-server
     command: ["ksql-server-start", "ksql-server.properties"]
@@ -46,7 +46,7 @@ services:
   # log into the CLI by running:
   # docker-compose exec ksqldb-cli ksql http://ksqldb-server:8088
   ksqldb-cli:
-    image: confluentinc/ksqldb-cli:0.14.0
+    image: confluentinc/ksqldb-cli:0.25.1
     container_name: ksqldb-cli
     depends_on:
       - kafka
@@ -70,7 +70,7 @@ services:
       CONFLUENT_METRICS_TOPIC_REPLICATION: 1
       PORT: 9021
       #CONTROL_CENTER_CONNECT_CONNECT-DEFAULT_CLUSTER: 'connect:8083'
-      #CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
-      #CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
+      CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
+      CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
       # CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       TZ: Asia/Taipei

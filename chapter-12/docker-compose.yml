@@ -11,6 +11,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 32181
       ZOOKEEPER_TICK_TIME: 2000
+      TZ: Asia/Taipei
 
   kafka:
     image: confluentinc/cp-enterprise-kafka:6.0.6
@@ -29,6 +30,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      TZ: Asia/Taipei
 
   kafka-create-topics:
     image: confluentinc/cp-enterprise-kafka:6.0.6

@@ -11,6 +11,7 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      TZ: Asia/Taipei
 
   kafka:
     image: confluentinc/cp-enterprise-kafka:6.0.6
@@ -29,6 +30,7 @@ services:
       KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      TZ: Asia/Taipei
 
   schema-registry:
     image: confluentinc/cp-schema-registry:6.0.6
@@ -38,9 +40,10 @@ services:
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
+      TZ: Asia/Taipei
   
   ksqldb-server:
-    image: confluentinc/ksqldb-server:0.14.0
+    image: confluentinc/ksqldb-server:0.25.1
     hostname: ksqldb-server
     container_name: ksqldb-server
     command: ["ksql-server-start", "/etc/ksqldb-server/server.properties"]
@@ -54,6 +57,7 @@ services:
       KSQL_KSQL_LOGGING_PROCESSING_STREAM_AUTO_CREATE: "true"
       KSQL_KSQL_LOGGING_PROCESSING_TOPIC_AUTO_CREATE: "true"
       KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+      TZ: Asia/Taipei
     volumes:
     - ./files/ksqldb-server:/etc/ksqldb-server
     - ./udf/build/libs:/etc/ksqldb/extensions
@@ -64,7 +68,7 @@ services:
   # with custom configs
   # docker-compose exec ksqldb-cli ksql http://ksqldb-server:8088 --config-file /etc/ksqldb-cli/cli.properties
   ksqldb-cli:
-    image: confluentinc/ksqldb-cli:0.14.0
+    image: confluentinc/ksqldb-cli:0.25.1
     container_name: ksqldb-cli
     command: ["ksql", "http://ksqldb-server:8088", "--config-file", "/etc/ksqldb-cli/cli.properties"]
     depends_on:
@@ -92,7 +96,7 @@ services:
       CONFLUENT_METRICS_TOPIC_REPLICATION: 1
       PORT: 9021
       #CONTROL_CENTER_CONNECT_CONNECT-DEFAULT_CLUSTER: 'connect:8083'
-      #CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
-      #CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
-      # CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
+      CONTROL_CENTER_KSQL_KSQLDB1_URL: "http://ksqldb-server:8088"
+      CONTROL_CENTER_KSQL_KSQLDB1_ADVERTISED_URL: "http://localhost:8088"
+      CONTROL_CENTER_SCHEMA_REGISTRY_URL: "http://schema-registry:8081"
       TZ: Asia/Taipei
