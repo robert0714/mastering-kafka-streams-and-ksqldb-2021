@@ -483,8 +483,9 @@ Figure 4-6. Rekeying messages ensures related records appear on the same partiti
 
 > # NOTE
 > When we add a key-changing operator to our topology, the underlying data will be **marked for repartitioning**. This means that as soon as we add a downstream operator that reads the new key, Kafka Streams will:   
->     * Send the rekeyed data to an internal repartition topic   
->     * Reread the newly rekeyed data back into Kafka Streams   
+> 
+> * Send the rekeyed data to an internal repartition topic   
+> * Reread the newly rekeyed data back into Kafka Streams   
 > 
 > This process ensures related records (i.e., records that share the same key) will be processed by the same task in subsequent topology steps. However, the network trip required for rerouting data to a special repartition topic means that rekey operations can be expensive.
 
