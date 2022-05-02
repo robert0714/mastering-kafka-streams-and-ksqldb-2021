@@ -33,10 +33,14 @@ services:
       TZ: Asia/Taipei
 
   schema-registry:
+    hostname: schema-registry
+    container_name: schema-registry
     image: confluentinc/cp-schema-registry:6.0.6
     depends_on:
       - zookeeper
       - kafka
+    ports:
+      - "8081:8081"
     environment:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
