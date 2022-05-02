@@ -9,8 +9,7 @@ import org.slf4j.*;
 public class MyTopology {
   public Topology build() {
     StreamsBuilder builder = new StreamsBuilder();
-    builder
-        .stream("events", Consumed.with(Serdes.String(), Serdes.ByteArray()))
+    builder.stream("events", Consumed.with(Serdes.String(), Serdes.ByteArray()))
         .selectKey(MyTopology::decodeKey)
         .to("events-repartitioned");
     return builder.build();

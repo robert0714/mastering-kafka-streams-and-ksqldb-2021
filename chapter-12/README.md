@@ -30,7 +30,7 @@ $ cd ksqldb-tests/
 $ docker run  \
     -v "$(pwd)":/ksqldb/ \
     -w /ksqldb \
-    -ti confluentinc/ksqldb-server:0.14.0 \
+    -ti confluentinc/ksqldb-server:0.25.1 \
     ksql-test-runner -s statements.sql -i input.json -o output.json
     
 # look for "Test passed!" in the output
@@ -58,7 +58,7 @@ $ docker run \
         -Dcom.sun.management.jmxremote.rmi.port=1099 \
         -Dcom.sun.management.jmxremote.authenticate=false \
         -Dcom.sun.management.jmxremote.ssl=false" \
-    -ti confluentinc/ksqldb-server:0.14.0  \
+    -ti confluentinc/ksqldb-server:0.25.1  \
     ksql-server-start /ksqldb/config/server.properties
 ```
 

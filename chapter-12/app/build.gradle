@@ -5,20 +5,20 @@ plugins {
   id 'com.github.sherter.google-java-format' version '0.9'
 
   // used for containerizing the app
-  id 'com.google.cloud.tools.jib' version '2.1.0'
+  id 'com.google.cloud.tools.jib' version '3.2.1'
 
   // for downloading a Prometheus JMX Exporter JAR that can run as a Java agent
-  id 'de.undercouch.download' version '4.1.1'
+  id 'de.undercouch.download' version '5.0.5'
 
   // for benchmarking
-  id 'me.champeau.gradle.jmh' version '0.5.2'
+  id 'me.champeau.gradle.jmh' version '0.5.3'
 }
 
 ext {
-  kafkaVersion = '2.6.0'
-  opencensusVersion = '0.26.0'
+  kafkaVersion = '2.6.2'
+  opencensusVersion = '0.31.1'
   simpleclientVersion = '0.6.0'
-  prometheusJmxExporterVersion='0.14.0'
+  prometheusJmxExporterVersion='0.16.1'
 }
 
 /**
@@ -82,7 +82,7 @@ dependencies {
   implementation 'ch.qos.logback:logback-classic:1.2.11'
 
   // configuration
-  implementation "com.typesafe:config:1.4.0"
+  implementation "com.typesafe:config:1.4.2"
 
   // observability dependencies
   implementation "io.prometheus.jmx:jmx_prometheus_httpserver:${prometheusJmxExporterVersion}"
@@ -92,7 +92,7 @@ dependencies {
 
   // test dependencies
   testImplementation "org.apache.kafka:kafka-streams-test-utils:${kafkaVersion}"
-  testImplementation 'org.assertj:assertj-core:3.15.0'
+  testImplementation 'org.assertj:assertj-core:3.22.0'
   testImplementation 'org.junit.jupiter:junit-jupiter:5.8.2'
 }
 
