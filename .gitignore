@@ -2,3 +2,5 @@
 **/target/
 **/.gradle/
 **/grafana.db
+.attach_pid*
+chapter-12/grafana/*
