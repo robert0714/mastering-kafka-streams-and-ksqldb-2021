@@ -36,7 +36,8 @@ class LeaderboardTopology {
         builder.stream("score-events", Consumed.with(Serdes.ByteArray(), JsonSerdes.ScoreEvent()))
             // now marked for re-partitioning
             .selectKey((k, v) -> v.getPlayerId().toString());
-
+    scoreEvents.print(Printed.<String, ScoreEvent>toSysOut().withLabel("score-events"));
+    
     // create the sharded players table
     KTable<String, Player> players =
         builder.table("players", Consumed.with(Serdes.String(), JsonSerdes.Player()));
