@@ -1,20 +1,16 @@
-package com.magicalpipelines;
+package com.magicalpipelines.api;
 
 import org.apache.kafka.common.serialization.Serdes;
 import org.apache.kafka.streams.KafkaStreams;
 import org.apache.kafka.streams.KeyQueryMetadata;
 import org.apache.kafka.streams.KeyValue;
-import org.apache.kafka.streams.StoreQueryParameters;
 import org.apache.kafka.streams.state.HostInfo;
 import org.apache.kafka.streams.state.KeyValueIterator;
-import org.apache.kafka.streams.state.QueryableStoreTypes;
 import org.apache.kafka.streams.state.ReadOnlyKeyValueStore;
 import org.apache.kafka.streams.state.StreamsMetadata;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.stream.binder.kafka.streams.InteractiveQueryService;
-import org.springframework.context.ApplicationContext;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
-import org.springframework.kafka.config.StreamsBuilderFactoryBean;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
+import com.magicalpipelines.HighScores;
 import com.magicalpipelines.model.join.Enriched;
 
 import lombok.extern.slf4j.Slf4j;
@@ -34,77 +31,34 @@ import java.util.Map;
 @RestController
 @RequestMapping("/leaderboard")
 @Slf4j
+@ConditionalOnProperty(prefix = "api", name = "mode", havingValue = "SERVLET")
 public class LeaderboardController {
 	@Autowired
-    private InteractiveQueryService interactiveQueryService;
+    private KafkaComponent kafkaComponent;
     
     @Autowired
-    private   HostInfo hostInfo;
-    
-    @Autowired
-    private ApplicationContext context;
- 
-    private KafkaStreams getStream() {    	
-    	String[] clazzNames = context.getBeanNamesForType( StreamsBuilderFactoryBean.class);
-		for(String name:clazzNames) {
-			System.out.println(name);
-		}
-		final StreamsBuilderFactoryBean streamsBuilderFactoryBean = 
-				context.getBean("&stream-builder-jointProducts", StreamsBuilderFactoryBean.class);
-		
-		KafkaStreams kafkaStreams = streamsBuilderFactoryBean.getKafkaStreams();
-		return  kafkaStreams ;
-    }
-
-    protected ReadOnlyKeyValueStore<String, HighScores> getStore() {
-    	int tmp =(int)(Math.random()*10000);
-    	
-		if ( (tmp % 2) == 0)
-			return getStoreV1();
-		else
-			return getStoreV2();
-	}
-
-	protected ReadOnlyKeyValueStore<String, HighScores> getStoreV1() {
-		return interactiveQueryService.getQueryableStore(
-				// state store name
-				"leader-boards",
-				// state store type
-				QueryableStoreTypes.keyValueStore());
-	}
-
-	protected ReadOnlyKeyValueStore<String, HighScores> getStoreV2() {
-
-		return getStream().store(StoreQueryParameters.fromNameAndType(
-				// state store name
-				"leader-boards",
-				// state store type
-				QueryableStoreTypes.keyValueStore()));
-	}
+    private   HostInfo hostInfo; 
+     
 	 /** Local key-value store query: all entries */
     @GetMapping
     @ResponseBody
     public Map<String, List<Enriched>> getAll() { 
-    	
-    	Map<String, List<Enriched>> leaderboard = new HashMap<>();
-		KeyValueIterator<String, HighScores> range = getStore().all();
-		while (range.hasNext()) {
-			KeyValue<String, HighScores> next = range.next();
-			String game = next.key;
-			HighScores highScores = next.value;
-			leaderboard.put(game, highScores.toList());
+    	Map<String, List<Enriched>> leaderboard = new HashMap<>();		
+		try (KeyValueIterator<String, HighScores> range = getStore().all()) {
+			range.forEachRemaining((next) -> {
+				String game = next.key;
+				HighScores highScores = next.value;
+				leaderboard.put(game, highScores.toList());
+			});
 		}
-		range.close();
         return leaderboard;
     }
-    
-    
     
     /** Local key-value store query: approximate number of entries */
 	@GetMapping("/count")
 	@ResponseBody
 	public long getCount() {
-		long count = getStore().approximateNumEntries();
+		long count = kafkaComponent.getStore().approximateNumEntries();
 
 	    for (StreamsMetadata metadata : getStream().allMetadataForStore("leader-boards")) {
 	      if (!hostInfo.equals(metadata.hostInfo())) {
@@ -161,7 +115,11 @@ public class LeaderboardController {
 		return leaderboard;
 	}
 	
-    @GetMapping("/{key}")
+
+
+
+
+	@GetMapping("/{key}")
     @ResponseBody
     public ResponseEntity<?>  getKey(@PathVariable("key") String productId) {
     	 // find out which host has the key
@@ -202,4 +160,12 @@ public class LeaderboardController {
 		}
     }
 
+
+
+	private KafkaStreams getStream() {
+		return kafkaComponent.getStream();
+	}
+    private ReadOnlyKeyValueStore<String, HighScores> getStore() {
+		return kafkaComponent.getStore();
+	}
 }

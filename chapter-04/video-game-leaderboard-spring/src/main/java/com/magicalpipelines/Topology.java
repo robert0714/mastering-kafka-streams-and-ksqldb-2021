@@ -1,30 +1,19 @@
 package com.magicalpipelines;
 
-import java.util.Map;
-import java.util.UUID;
-import java.util.function.BiFunction;
-import java.util.function.Function;
-
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.LongSerializer;
-import org.apache.kafka.common.serialization.Serdes;
-import org.apache.kafka.common.serialization.Serializer;
-import org.apache.kafka.common.utils.Bytes;
-import org.apache.kafka.streams.kstream.Grouped;
-import org.apache.kafka.streams.kstream.KStream;
-import org.apache.kafka.streams.kstream.KTable;
-import org.apache.kafka.streams.kstream.KeyValueMapper;
-import org.apache.kafka.streams.kstream.Materialized;
-import org.apache.kafka.streams.kstream.ValueJoiner;
-import org.apache.kafka.streams.state.KeyValueStore;
-import org.springframework.kafka.core.DefaultKafkaProducerFactory;
-import org.springframework.kafka.support.serializer.JsonSerde;
  
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.common.serialization.Serdes; 
+import org.apache.kafka.streams.kstream.Aggregator; 
+import org.apache.kafka.streams.kstream.Initializer;
+import org.apache.kafka.streams.kstream.Joined; 
+import org.apache.kafka.streams.kstream.KeyValueMapper; 
+import org.apache.kafka.streams.kstream.ValueJoiner; 
+  
 import com.magicalpipelines.model.Player;
 import com.magicalpipelines.model.Product;
+import com.magicalpipelines.model.ScoreEvent;
 import com.magicalpipelines.model.join.Enriched;
 import com.magicalpipelines.model.join.ScoreWithPlayer;
+import com.magicalpipelines.serialization.json.JsonSerdes;
  
 
 public interface Topology {
@@ -35,13 +24,53 @@ public interface Topology {
      * stream - ScoreWithPlayer is the value type for the score events stream - String is the lookup
      * key type
      */
-    KeyValueMapper<String, ScoreWithPlayer, String> keyMapper =
+	final KeyValueMapper<String, ScoreWithPlayer, String> keyMapper =
         (leftKey, scoreWithPlayer) -> {
           return String.valueOf(scoreWithPlayer.getScoreEvent().getProductId());
         };
         
-        
-    // join the withPlayers stream to the product global ktable
-    ValueJoiner<ScoreWithPlayer, Product, Enriched> productJoiner =
+	/***
+	 * join the withPlayers stream to the product global ktable <br/> <br/>
+	 * This join needs to combine a ScoreWithPlayer (from the output of the first join) with a Product (from the products GlobalKTable) <br/> <br/>
+	 * A ValueJoiner, expressed as a lambda, that   for the KStream-GlobalKTable <br/> <br/>
+	 ***/
+    final ValueJoiner<ScoreWithPlayer, Product, Enriched> productJoiner =
             (scoreWithPlayer, product) -> new Enriched(scoreWithPlayer, product);
+            
+            
+	/***
+	 * KStream to KTable Join (players Join) <br/> <br/>
+	 * join params for scoreEvents -> players join
+	 * ***/   
+    final Joined<String, ScoreEvent, Player> playerJoinParams = 
+    		Joined.with(
+    			Serdes.String(),
+    			JsonSerdes.ScoreEvent(),
+    			JsonSerdes.Player());
+    /***
+	 * join scoreEvents -> players <br/> <br/>
+	 * ValueJoiner combines a ScoreEvent (from the score-events KStream) and a Player (from the players KTable) into a ScoreWithPlayer instance <br/> <br/>
+	 *  (score,player) -> new ScoreWithPlayer(score, player)  , a static method ->  ScoreWithPlayer::new 
+	 * ***/ 
+    final ValueJoiner<ScoreEvent, Player, ScoreWithPlayer> scorePlayerJoiner
+//              =  		(score,player) -> new ScoreWithPlayer(score, player);
+                =   ScoreWithPlayer::new ;
+    
+    
+  
+    /** 
+     * The initial value of our aggregation will be a new HighScores instances <br/><br/> 
+     * It tell Kafka Streams how to initialize our new data class. Initializing a class is simple; we just need to instantiate it
+     *  */
+    final  Initializer<HighScores> highScoresInitializer = HighScores::new;
+
+    /** 
+     * The logic for aggregating high scores is implemented in the HighScores.add method <br/>
+     * This is accomplished using the Aggregator interface, which, like Initializer, is a functional interface that can be implemented using a lambda. The implementing function needs to accept three parameters:<br/>
+     * (1)The record key<br/>
+     * (2)The record value <br/>
+     * (3)The current aggregate value
+     *  */
+    final Aggregator<String, Enriched, HighScores> highScoresAdder =
+        (key, value, aggregate) -> aggregate.add(value);
 }
